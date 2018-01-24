@@ -1,5 +1,3 @@
-
-
 #include	<cstdio>
 #include	<cstring>
 #include	<cstdint>
@@ -10,36 +8,26 @@
 
 #define		BUFFER_LEN		1024
 
-static short impulseResponseBuffer [BUFFER_LEN];
-static short targetSoundBuffer [BUFFER_LEN];
-
+static short impulseResponseBuffer[BUFFER_LEN];
+static short targetSoundBuffer[BUFFER_LEN];
 
 /*
  * create_file (fname, SF_FORMAT_WAV | SF_FORMAT_PCM_16);
  */
-static void create_file (const char * fname, int format)
+static SndfileHandle create_file (const char * fname, int format)
 {	
-	static short buffer [BUFFER_LEN] ;
 
 	SndfileHandle file ;
+
 	int channels = 2 ;
 	int srate = 48000 ;
 
-	printf ("Creating file named '%s'\n", fname) ;
+	printf ("Creating file named '%s'\n", "resources/output.wav") ;
 
-	file = SndfileHandle (fname, SFM_WRITE, format, channels, srate) ;
+	file = SndfileHandle(fname, SFM_WRITE, format, channels, srate) ;
 
-	memset (buffer, 0, sizeof (buffer)) ;
 
-	file.write (buffer, BUFFER_LEN) ;
-
-	puts ("") ;
-	/*
-	**	The SndfileHandle object will automatically close the file and
-	**	release all allocated memory when the object goes out of scope.
-	**	This is the Resource Acquisition Is Initailization idom.
-	**	See : http://en.wikipedia.org/wiki/Resource_Acquisition_Is_Initialization
-	*/
+	return file;
 } /* create_file */
 
 static SndfileHandle openImpulseResponse(const char * fname) {
@@ -61,7 +49,9 @@ int main(int argc, char const *argv[]) {
 
 	SndfileHandle targetSound = openTargetSound("resources/kick_for_breaks.wav");
 	SndfileHandle impulseResponse = openImpulseResponse("resources/HallA.wav");
+	SndfileHandle outputSound = create_file("resources/output.wav", SF_FORMAT_WAV | SF_FORMAT_PCM_16);
 
+	uint32_t outputSize = 0;
 	uint32_t targetSoundFrameCount = (uint32_t) targetSound.frames();
 	uint8_t targetSoundChannelCount = (uint8_t) targetSound.channels();
 	uint32_t impulseResponseFrameCount = (uint32_t) impulseResponse.frames();
@@ -74,6 +64,7 @@ int main(int argc, char const *argv[]) {
 
 	float* targetSignal = new float[targetSoundFrameCount * targetSoundChannelCount];
 	float* impulseSignal = new float[impulseResponseFrameCount * impulseResponseChannelCount];
+	float* outputSoundSignal;
 
 	targetSound.readf(targetSignal, targetSoundFrameCount * targetSoundChannelCount);
 	impulseResponse.readf(impulseSignal, impulseResponseChannelCount * impulseResponseChannelCount);
@@ -97,7 +88,16 @@ int main(int argc, char const *argv[]) {
 	float* outputsx = new float[targetSoundFrameCount + impulseResponseFrameCount - 1];
 	float* outputdx = new float[targetSoundFrameCount + impulseResponseFrameCount - 1];
 
-	CPUConv(targetSignal, impulsesx, impulsedx, outputsx, outputdx);
+	outputSize = CPUConv(targetSignal, targetSoundFrameCount, impulsesx, impulsedx, impulseResponseFrameCount, outputsx, outputdx);
+
+	// // write results to outputfile
+	outputSoundSignal = new float[targetSoundFrameCount + impulseResponseFrameCount - 1];
+	for (int i = 0; i < outputSize; i++) {
+		outputSoundSignal[2*i]=(outputsx[i]);
+		outputSoundSignal[2*i+1]=(outputdx[i]);
+	}
+
+	outputSound.writef(outputSoundSignal, outputSize * targetSoundChannelCount) ;
 
 	return 0;
 }

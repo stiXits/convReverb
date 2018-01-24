@@ -3,7 +3,7 @@ CXX=g++
 RM=rm -f
 CPPFLAGS=-g
 LDFLAGS=-g 
-LDLIBS=-lsndfile
+LDLIBS=-lsndfile -lfftw3
 
 SRCS=main.cpp CPUconv.cpp
 OBJS=$(subst .cpp,.o,$(SRCS))
