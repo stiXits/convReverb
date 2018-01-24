@@ -76,22 +76,22 @@ int main(int argc, char const *argv[]) {
 	float* impulseSignal = new float[impulseResponseFrameCount * impulseResponseChannelCount];
 
 	targetSound.readf(targetSignal, targetSoundFrameCount * targetSoundChannelCount);
-	impulseResponse.readf(impulseSignal, (impulseResponseChannelCount + 1) * impulseResponseChannelCount);
+	impulseResponse.readf(impulseSignal, impulseResponseChannelCount * impulseResponseChannelCount);
 
 	float* impulsesx = new float[impulseResponseFrameCount];
 	float* impulsedx = new float[impulseResponseFrameCount];
 
-	// split up channels
-	// for (int i = 0; i < impulseResponseFrameCount; i++) {
-	// 	if(impulseResponseChannelCount==2){
-	// 		impulsesx[i] = impulseSignal[2*i];
-	// 		impulsedx[i] = impulseSignal[2*i+1];
-	// 	}
-	// 	else{
-	// 		impulsesx[i] = impulseSignal[i];
-	// 		impulsedx[i] = impulseSignal[i];
-	// 	}
-	// }
+	//split up channels
+	for (int i = 0; i < impulseResponseFrameCount; i++) {
+		if(impulseResponseChannelCount==2){
+			impulsesx[i] = impulseSignal[2*i];
+			impulsedx[i] = impulseSignal[2*i+1];
+		}
+		else{
+			impulsesx[i] = impulseSignal[i];
+			impulsedx[i] = impulseSignal[i];
+		}
+	}
 
 	// create output array for both channels
 	float* outputsx = new float[targetSoundFrameCount + impulseResponseFrameCount - 1];
