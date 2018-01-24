@@ -6,6 +6,8 @@
 
 #include	<sndfile.hh>
 
+#include	"CPUconv.h"
+
 #define		BUFFER_LEN		1024
 
 static short impulseResponseBuffer [BUFFER_LEN];
@@ -94,6 +96,8 @@ int main(int argc, char const *argv[]) {
 	// create output array for both channels
 	float* outputsx = new float[targetSoundFrameCount + impulseResponseFrameCount - 1];
 	float* outputdx = new float[targetSoundFrameCount + impulseResponseFrameCount - 1];
+
+	CPUConv(targetSignal, impulsesx, impulsedx, outputsx, outputdx);
 
 	return 0;
 }
