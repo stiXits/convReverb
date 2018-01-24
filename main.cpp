@@ -70,12 +70,30 @@ int main(int argc, char const *argv[]) {
 	printf("impuls response sample count %d\n", impulseResponseFrameCount);
 	printf("impuls response channel count %d\n", impulseResponseChannelCount);
 
-	float targetSignal[targetSoundFrameCount * targetSoundChannelCount];
-	float impulseSignal[impulseResponseFrameCount * impulseResponseChannelCount];
+	float* targetSignal = new float[targetSoundFrameCount * targetSoundChannelCount];
+	float* impulseSignal = new float[impulseResponseFrameCount * impulseResponseChannelCount];
 
 	targetSound.readf(targetSignal, targetSoundFrameCount * targetSoundChannelCount);
-	impulseResponse.readf(impulseSignal, impulseResponseChannelCount * impulseResponseChannelCount);
+	impulseResponse.readf(impulseSignal, (impulseResponseChannelCount + 1) * impulseResponseChannelCount);
 
-	puts ("Done.\n") ;
+	float* impulsesx = new float[impulseResponseFrameCount];
+	float* impulsedx = new float[impulseResponseFrameCount];
+
+	// split up channels
+	// for (int i = 0; i < impulseResponseFrameCount; i++) {
+	// 	if(impulseResponseChannelCount==2){
+	// 		impulsesx[i] = impulseSignal[2*i];
+	// 		impulsedx[i] = impulseSignal[2*i+1];
+	// 	}
+	// 	else{
+	// 		impulsesx[i] = impulseSignal[i];
+	// 		impulsedx[i] = impulseSignal[i];
+	// 	}
+	// }
+
+	// create output array for both channels
+	float* outputsx = new float[targetSoundFrameCount + impulseResponseFrameCount - 1];
+	float* outputdx = new float[targetSoundFrameCount + impulseResponseFrameCount - 1];
+
 	return 0;
 }
