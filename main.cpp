@@ -2,6 +2,7 @@
 
 #include	<cstdio>
 #include	<cstring>
+#include	<cstdint>
 
 #include	<sndfile.hh>
 
@@ -59,13 +60,21 @@ int main(int argc, char const *argv[]) {
 	SndfileHandle targetSound = openTargetSound("resources/kick_for_breaks.wav");
 	SndfileHandle impulseResponse = openImpulseResponse("resources/HallA.wav");
 
-	float targetSignal[targetSound.frames()];
-	// Allocate host memory for the signal
-	sampleread = targetSound.read(targetSignal, targetSound.frames());
-	if (sampleread != targetSound.frames()) { 
-		printf ("Error!");
-		return 1;
-	}
+	uint32_t targetSoundFrameCount = (uint32_t) targetSound.frames();
+	uint8_t targetSoundChannelCount = (uint8_t) targetSound.channels();
+	uint32_t impulseResponseFrameCount = (uint32_t) impulseResponse.frames();
+	uint8_t impulseResponseChannelCount = (uint8_t) impulseResponse.channels();
+
+	printf("target sound sample count %d\n", targetSoundFrameCount);
+	printf("target sound channel count %d\n", targetSoundChannelCount);
+	printf("impuls response sample count %d\n", impulseResponseFrameCount);
+	printf("impuls response channel count %d\n", impulseResponseChannelCount);
+
+	float targetSignal[targetSoundFrameCount * targetSoundChannelCount];
+	float impulseSignal[impulseResponseFrameCount * impulseResponseChannelCount];
+
+	targetSound.readf(targetSignal, targetSoundFrameCount * targetSoundChannelCount);
+	impulseResponse.readf(impulseSignal, impulseResponseChannelCount * impulseResponseChannelCount);
 
 	puts ("Done.\n") ;
 	return 0;
