@@ -1,2 +1,4 @@
 convreverb
 resources
+*.o
+.depend

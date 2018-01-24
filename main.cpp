@@ -54,8 +54,18 @@ static SndfileHandle openTargetSound(const char * fname) {
 }
 
 int main(int argc, char const *argv[]) {
+	sf_count_t sampleread;
+
 	SndfileHandle targetSound = openTargetSound("resources/kick_for_breaks.wav");
 	SndfileHandle impulseResponse = openImpulseResponse("resources/HallA.wav");
+
+	float targetSignal[targetSound.frames()];
+	// Allocate host memory for the signal
+	sampleread = targetSound.read(targetSignal, targetSound.frames());
+	if (sampleread != targetSound.frames()) { 
+		printf ("Error!");
+		return 1;
+	}
 
 	puts ("Done.\n") ;
 	return 0;
