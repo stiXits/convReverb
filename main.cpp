@@ -92,7 +92,7 @@ int main(int argc, char const *argv[]) {
 
 	printf("outputSize: %d\n", outputSize);
 
-	// // write results to outputfile
+	// write results to outputfile
 	outputSoundSignal = new float[outputSize * targetSoundChannelCount];
 	for (int i = 0; i < outputSize; i++) {
 		outputSoundSignal[2*i]=(outputsx[i]);
