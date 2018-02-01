@@ -47,7 +47,7 @@ static SndfileHandle openTargetSound(const char * fname) {
 int main(int argc, char const *argv[]) {
 	sf_count_t sampleread;
 
-	SndfileHandle targetSound = openTargetSound("resources/kick_for_breaks.wav");
+	SndfileHandle targetSound = openTargetSound("resources/crash18.wav");
 	SndfileHandle impulseResponse = openImpulseResponse("resources/HallA.wav");
 	SndfileHandle outputSound = create_file("resources/output.wav", SF_FORMAT_WAV | SF_FORMAT_PCM_16);
 
@@ -66,8 +66,8 @@ int main(int argc, char const *argv[]) {
 	float* impulseSignal = new float[impulseResponseFrameCount * impulseResponseChannelCount];
 	float* outputSoundSignal;
 
-	targetSound.readf(targetSignal, targetSoundFrameCount * targetSoundChannelCount);
-	impulseResponse.readf(impulseSignal, impulseResponseChannelCount * impulseResponseChannelCount);
+	targetSound.read(targetSignal, targetSoundFrameCount * targetSoundChannelCount);
+	impulseResponse.read(impulseSignal, impulseResponseChannelCount * impulseResponseChannelCount);
 
 	float* impulsesx = new float[impulseResponseFrameCount];
 	float* impulsedx = new float[impulseResponseFrameCount];
@@ -90,14 +90,16 @@ int main(int argc, char const *argv[]) {
 
 	outputSize = CPUConv(targetSignal, targetSoundFrameCount, impulsesx, impulsedx, impulseResponseFrameCount, outputsx, outputdx);
 
+	printf("outputSize: %d\n", outputSize);
+
 	// // write results to outputfile
-	outputSoundSignal = new float[targetSoundFrameCount + impulseResponseFrameCount - 1];
+	outputSoundSignal = new float[outputSize * targetSoundChannelCount];
 	for (int i = 0; i < outputSize; i++) {
 		outputSoundSignal[2*i]=(outputsx[i]);
 		outputSoundSignal[2*i+1]=(outputdx[i]);
 	}
 
-	outputSound.writef(outputSoundSignal, outputSize * targetSoundChannelCount) ;
+	outputSound.write(outputSoundSignal, outputSize * targetSoundChannelCount) ;
 
 	return 0;
 }
