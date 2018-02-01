@@ -5,7 +5,7 @@
 #include	<sndfile.hh>
 
 #include	"CPUconvIdentity.h"
-#include	"CPUconvIdentitySimpleReverb.h"
+#include	"CPUconvSimpleReverb.h"
 
 #define		BUFFER_LEN		1024
 
@@ -48,7 +48,7 @@ static SndfileHandle openTargetSound(const char * fname) {
 int main(int argc, char const *argv[]) {
 	sf_count_t sampleread;
 
-	SndfileHandle targetSound = openTargetSound("resources/crash18.wav");
+	SndfileHandle targetSound = openTargetSound("resources/basic_kick.wav");
 	SndfileHandle impulseResponse = openImpulseResponse("resources/HallA.wav");
 	SndfileHandle outputSound = create_file("resources/output.wav", SF_FORMAT_WAV | SF_FORMAT_PCM_16);
 
@@ -89,7 +89,7 @@ int main(int argc, char const *argv[]) {
 	float* outputsx = new float[targetSoundFrameCount + impulseResponseFrameCount - 1];
 	float* outputdx = new float[targetSoundFrameCount + impulseResponseFrameCount - 1];
 
-	outputSize = CPUConvIdentity(targetSignal, targetSoundFrameCount, outputsx, outputdx);
+	outputSize = CPUconvSimpleReverb(targetSignal, 54109, impulsesx, impulsedx, impulseResponseFrameCount, outputsx, outputdx);
 
 	printf("outputSize: %d\n", outputSize);
 
