@@ -5,7 +5,7 @@ CPPFLAGS=-g
 LDFLAGS=-g 
 LDLIBS=-lsndfile -lfftw3
 
-SRCS=main.cpp CPUconv.cpp
+SRCS=main.cpp CPUconvIdentity.cpp
 OBJS=$(subst .cpp,.o,$(SRCS))
 
 all: convreverb

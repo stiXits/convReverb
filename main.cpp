@@ -4,7 +4,8 @@
 
 #include	<sndfile.hh>
 
-#include	"CPUconv.h"
+#include	"CPUconvIdentity.h"
+#include	"CPUconvIdentitySimpleReverb.h"
 
 #define		BUFFER_LEN		1024
 
@@ -88,7 +89,7 @@ int main(int argc, char const *argv[]) {
 	float* outputsx = new float[targetSoundFrameCount + impulseResponseFrameCount - 1];
 	float* outputdx = new float[targetSoundFrameCount + impulseResponseFrameCount - 1];
 
-	outputSize = CPUConv(targetSignal, targetSoundFrameCount, impulsesx, impulsedx, impulseResponseFrameCount, outputsx, outputdx);
+	outputSize = CPUConvIdentity(targetSignal, targetSoundFrameCount, outputsx, outputdx);
 
 	printf("outputSize: %d\n", outputSize);
 

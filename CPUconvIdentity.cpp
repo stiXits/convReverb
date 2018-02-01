@@ -1,9 +1,9 @@
-#include "CPUconv.h"
+#include "CPUconvIdentity.h"
 
 #include <fftw3.h>
 #include <math.h>
 
-uint32_t CPUConv(float *target, uint32_t targetFrames, float *impulsesx, float *impulsedx, uint32_t impulseFrames, float *outputsx, float *outputdx) {
+uint32_t CPUConvIdentity(float *target, uint32_t targetFrames, float *outputsx, float *outputdx) {
 
 	fftw_plan target_plan_forward, target_plan_backward;
 
