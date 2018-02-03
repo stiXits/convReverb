@@ -43,7 +43,7 @@ uint32_t CPUconvSimpleReverb(float *target, uint32_t targetFrames, float *impuls
 	target_plan_forward = fftw_plan_dft_1d(targetFrames, targetSignal, targetSignalFt, FFTW_FORWARD, FFTW_ESTIMATE);
 	fftw_execute(target_plan_forward);
 
-	impulse_plan_forward = fftw_plan_dft_1d(targetFrames, impulseSignal, impulseSignalFt, FFTW_FORWARD, FFTW_ESTIMATE);
+	impulse_plan_forward = fftw_plan_dft_1d(impulseFrames, impulseSignal, impulseSignalFt, FFTW_FORWARD, FFTW_ESTIMATE);
 	fftw_execute(impulse_plan_forward);
 
 	for (int i=0; i< targetFrames; i++){
@@ -76,19 +76,35 @@ uint32_t CPUconvSimpleReverb(float *target, uint32_t targetFrames, float *impuls
 	// 	targetSignalIft[i][0] / ( double ) ( targetFrames ), targetSignalIft[i][1] / ( double ) ( targetFrames ) );
 	// }
 
-	int diffs = 0;
-	for (int i = 0; i < targetFrames; ++i)
-	{
-		// TODO: add Debug mode
-		// if((float)((targetSignal[i][0])) != ((float)(targetSignalIft[i][0]) / (float) targetFrames)) {
-		// 	printf("diff at frame: %d\t (original) %f != (transformed) %f\n", i, (float)((targetSignal[i][0])), (float)((targetSignalIft[i][0])));
-		// 	diffs++;
-		// 	if (diffs >= 100) {
-		// 		break;
-		// 	}
-		// }
-		outputsx[i] = (float)((targetSignalIft[i][0]) / (float) targetFrames);
-		outputdx[i] = (float)((targetSignalIft[i][0]) / (float) targetFrames);
+	// int diffs = 0;
+	// for (int i = 0; i < targetFrames; ++i)
+	// {
+	// 	// TODO: add Debug mode
+	// 	// if((float)((targetSignal[i][0])) != ((float)(targetSignalIft[i][0]) / (float) targetFrames)) {
+	// 	// 	printf("diff at frame: %d\t (original) %f != (transformed) %f\n", i, (float)((targetSignal[i][0])), (float)((targetSignalIft[i][0])));
+	// 	// 	diffs++;
+	// 	// 	if (diffs >= 100) {
+	// 	// 		break;
+	// 	// 	}
+	// 	// }
+	// 	outputsx[i] = (float)((targetSignalIft[i][0]) / (float) targetFrames);
+	// 	outputdx[i] = (float)((targetSignalIft[i][0]) / (float) targetFrames);
+	// }
+
+	float maxo[2];
+	maxo[0]=0.0f;
+	maxo[1]=0.0f;  
+
+	for (int i = 0; i < targetFrames; i++){
+		if (abs(maxo[0])<=abs(targetSignalIft[i][0])) maxo[0]=targetSignalIft[i][0];
+		if (abs(maxo[1])<=abs(targetSignalIft[i][0])) maxo[1]=targetSignalIft[i][0];
+	}
+	float maxot= abs(maxo[0])>=abs(maxo[1])? abs(maxo[0]): abs(maxo[1]);
+
+	for (int i=0; i< targetFrames; i++){
+		float temp=0.0f;
+		outputsx[i]= (float)((targetSignalIft[i][0])/(maxot));
+		outputdx[i]= (float)((targetSignalIft[i][0])/(maxot));
 	}
 
 	delete [] targetSignal;
