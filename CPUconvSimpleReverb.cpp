@@ -105,21 +105,6 @@ uint32_t CPUconvSimpleReverb(float *target, uint32_t targetFrames, float *impuls
 	// 	targetSignalIft[i][0] / ( double ) ( targetFrames ), targetSignalIft[i][1] / ( double ) ( targetFrames ) );
 	// }
 
-	// int diffs = 0;
-	// for (int i = 0; i < targetFrames; ++i)
-	// {
-	// 	// TODO: add Debug mode
-	// 	// if((float)((targetSignal[i][0])) != ((float)(targetSignalIft[i][0]) / (float) targetFrames)) {
-	// 	// 	printf("diff at frame: %d\t (original) %f != (transformed) %f\n", i, (float)((targetSignal[i][0])), (float)((targetSignalIft[i][0])));
-	// 	// 	diffs++;
-	// 	// 	if (diffs >= 100) {
-	// 	// 		break;
-	// 	// 	}
-	// 	// }
-	// 	outputsx[i] = (float)((targetSignalIft[i][0]) / (float) targetFrames);
-	// 	outputdx[i] = (float)((targetSignalIft[i][0]) / (float) targetFrames);
-	// }
-
 	float maxo[2];
 	maxo[0]=0.0f;
 	maxo[1]=0.0f;  
