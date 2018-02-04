@@ -6,7 +6,6 @@
 
 #include	"CPUconvIdentity.h"
 #include	"CPUconvSimpleReverb.h"
-#include	"CPUconv.hpp"
 
 #define		BUFFER_LEN		1024
 
@@ -147,8 +146,9 @@ int main(int argc, char const *argv[]) {
     clock_t intermediate_start, intermediate_end;
 
 	// create output array for both channels
-	float* outputsx=(float*)malloc(sizeof(float) * (targetSoundFrameCount+impulseResponseFrameCount-1));
-	float* outputdx=(float*)malloc(sizeof(float) * (targetSoundFrameCount+impulseResponseFrameCount-1));
+	uint32_t tansformedSignalSize = targetSoundFrameCount+impulseResponseFrameCount-1;
+	float* outputsx=(float*)malloc(sizeof(float) * (tansformedSignalSize));
+	float* outputdx=(float*)malloc(sizeof(float) * (tansformedSignalSize));
 
 	//outputSize = CPUconvSimpleReverb(targetSignal, targetSoundFrameCount, impulsesx, impulsedx, impulseResponseFrameCount, outputsx, outputdx);
 	outputSize = CPUconvSimpleReverb(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx);
@@ -156,8 +156,8 @@ int main(int argc, char const *argv[]) {
 	uint32_t outputLength = outputSize * 2  + 1;
 	printf("outputSize: \t\t%d\n", outputSize);
 
-	printf("outpusx: \t\t%d\n", 1997223);
-	printf("outpusx: \t\t%d\n", 1997223);
+	printf("outpusx: \t\t%d\n", tansformedSignalSize);
+	printf("outpusx: \t\t%d\n", tansformedSignalSize);
 	printf("outputSoundSignal: \t%d\n", outputLength);
 	printf("returned size: \t\t%d\n", outputSize);
 
