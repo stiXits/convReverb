@@ -38,7 +38,7 @@ uint32_t CPUconvSimpleReverb(float *target, uint32_t targetFrames, float *impuls
 
 	for (int i = 0; i < resultSignalSize; ++i)
 	{
-		if(i<impulseFrames){
+		if(i < impulseFrames){
 			impulseSignalSx[i][0] = impulsesx[i];
 			impulseSignalDx[i][0] = impulsedx[i];
 		}
@@ -62,13 +62,13 @@ uint32_t CPUconvSimpleReverb(float *target, uint32_t targetFrames, float *impuls
 	// }
 
 	// fourrier transform of target and impulse signal
-	target_plan_forward = fftw_plan_dft_1d(targetFrames, targetSignal, targetSignalFt, FFTW_FORWARD, FFTW_ESTIMATE);
+	target_plan_forward = fftw_plan_dft_1d(resultSignalSize, targetSignal, targetSignalFt, FFTW_FORWARD, FFTW_ESTIMATE);
 	fftw_execute(target_plan_forward);
 
-	impulseSx_plan_forward = fftw_plan_dft_1d(impulseFrames, impulseSignalSx, impulseSignalSxFt, FFTW_FORWARD, FFTW_ESTIMATE);
+	impulseSx_plan_forward = fftw_plan_dft_1d(resultSignalSize, impulseSignalSx, impulseSignalSxFt, FFTW_FORWARD, FFTW_ESTIMATE);
 	fftw_execute(impulseSx_plan_forward);
 
-	impulseDx_plan_forward = fftw_plan_dft_1d(impulseFrames, impulseSignalDx, impulseSignalDxFt, FFTW_FORWARD, FFTW_ESTIMATE);
+	impulseDx_plan_forward = fftw_plan_dft_1d(resultSignalSize, impulseSignalDx, impulseSignalDxFt, FFTW_FORWARD, FFTW_ESTIMATE);
 	fftw_execute(impulseDx_plan_forward);
 
 	for (int i=0; i< resultSignalSize; i++){
@@ -89,9 +89,9 @@ uint32_t CPUconvSimpleReverb(float *target, uint32_t targetFrames, float *impuls
 	// }
 
 	// backward fourrier transform on transformed signal
-	transformedSx_plan_backward = fftw_plan_dft_1d(targetFrames, transformedSignalSx, targetSignalSxIft, FFTW_BACKWARD, FFTW_ESTIMATE);
+	transformedSx_plan_backward = fftw_plan_dft_1d(resultSignalSize, transformedSignalSx, targetSignalSxIft, FFTW_BACKWARD, FFTW_ESTIMATE);
 	fftw_execute(transformedSx_plan_backward);
-	transformedDx_plan_backward = fftw_plan_dft_1d(targetFrames, transformedSignalDx, targetSignalDxIft, FFTW_BACKWARD, FFTW_ESTIMATE);
+	transformedDx_plan_backward = fftw_plan_dft_1d(resultSignalSize, transformedSignalDx, targetSignalDxIft, FFTW_BACKWARD, FFTW_ESTIMATE);
 	fftw_execute(transformedDx_plan_backward);
 
 	// TODO: add Debug mode
