@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, float *impulseR, uint32_t impulseFrames, float *outputsx, float *outputdx) {
+uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, float *impulseR, uint32_t impulseFrames, float *outputL, float *outputR) {
 
 	fftw_plan transformedL_plan_backward, transformedR_plan_backward, impulseL_plan_forward, impulseR_plan_forward;
 	uint32_t sampleCount = targetFrames / impulseFrames;
@@ -11,21 +11,23 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 
 	// FFT buffers
 	fftw_complex* impulseSignalL = new fftw_complex[sampleSize];
-	fftw_complex* impulseSignalLFt = new fftw_complex[sampleSize];
+	fftw_complex* impulseSignalLFT = new fftw_complex[sampleSize];
 
 	fftw_complex* impulseSignalR = new fftw_complex[sampleSize];
-	fftw_complex* impulseSignalRFt = new fftw_complex[sampleSize];
+	fftw_complex* impulseSignalRFT = new fftw_complex[sampleSize];
 
-	fftw_complex* targetSignalLIft = new fftw_complex[resultSignalSize];
-	fftw_complex* targetSignalRIft = new fftw_complex[resultSignalSize];
+	fftw_complex* targetSignalLIFT = new fftw_complex[resultSignalSize];
+	fftw_complex* targetSignalRIFT = new fftw_complex[resultSignalSize];
 
 	fftw_complex* transformedSignalL = new fftw_complex[resultSignalSize];
 	fftw_complex* transformedSignalR = new fftw_complex[resultSignalSize];
 
 	fftw_complex* paddedTargetSignal = new fftw_complex[resultSignalSize];
-	fftw_complex* targetSignalSFt = new fftw_complex[resultSignalSize];
+	fftw_complex* targetSignalsLFT = new fftw_complex[resultSignalSize];
+	fftw_complex* targetSignalsRFT = new fftw_complex[resultSignalSize];
 
 	padTargetSignal(target, sampleCount, impulseFrames, paddedTargetSignal);
+	printComplexArray(paddedTargetSignal, impulseFrames);
 
 	// copy impulse sound to complex buffer
 	for (int i = 0; i < sampleSize; ++i)
@@ -43,92 +45,61 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 		impulseSignalR[i][1] = 0.0f;
 	}
 
-	// TODO: add Debug mode
-	// printf ( "\n#####################################\n\n\n\n\n\n" );
-	// printf ( "  Input Data:\n" );
-	// printf ( "\n" );
-
-	// for (int i = 0; i < targetFrames; i++ )
-	// {
-	// 	printf ( "  %3d  %12f  %12f\n", i, targetSignal[i][0], targetSignal[i][1] );
-	// }
-
 	// apply fft to impulse l and r
-	impulseL_plan_forward = fftw_plan_dft_1d(resultSignalSize, impulseSignalL, impulseSignalLFt, FFTW_FORWARD, FFTW_ESTIMATE);
+	impulseL_plan_forward = fftw_plan_dft_1d(resultSignalSize, impulseSignalL, impulseSignalLFT, FFTW_FORWARD, FFTW_ESTIMATE);
 	fftw_execute(impulseL_plan_forward);
-	impulseR_plan_forward = fftw_plan_dft_1d(resultSignalSize, impulseSignalR, impulseSignalRFt, FFTW_FORWARD, FFTW_ESTIMATE);
+	impulseR_plan_forward = fftw_plan_dft_1d(resultSignalSize, impulseSignalR, impulseSignalRFT, FFTW_FORWARD, FFTW_ESTIMATE);
 	fftw_execute(impulseR_plan_forward);
-
-
-
 
 	// fourrier transform of target and impulse signal
 	// resultSignalSize, targetSignal, targetSignalFt
 	for (int i = 0; i < sampleCount; i += sampleSize)
 	{
 		// colvolve only parts of the input and output buffers
-		convolve(&paddedTargetSignal[i], impulseSignalR, &targetSignalSFt[i], sampleSize);
+		convolve(&paddedTargetSignal[i], impulseSignalL, &targetSignalsLFT[i], sampleSize);
+		convolve(&paddedTargetSignal[i], impulseSignalR, &targetSignalsRFT[i], sampleSize);
 	}
 
-	// TODO: add Debug mode
-	// printf ( "\n#####################################\n\n\n\n\n\n" );
-	// printf ( "  Output FFT Coefficients:\n" );
-	// printf ( "\n" );
-
-	// for (int i = 0; i < targetFrames; i++ )
-	// {
-	// 	printf ( "  %3d  %12f  %12f\n", i, targetSignalFt[i][0], targetSignalFt[i][1] );
-	// }
-
 	// backward fourrier transform on transformed signal
-	transformedL_plan_backward = fftw_plan_dft_1d(resultSignalSize, transformedSignalL, targetSignalLIft, FFTW_BACKWARD, FFTW_ESTIMATE);
+	transformedL_plan_backward = fftw_plan_dft_1d(resultSignalSize, targetSignalsLFT, targetSignalLIFT, FFTW_BACKWARD, FFTW_ESTIMATE);
 	fftw_execute(transformedL_plan_backward);
-	transformedR_plan_backward = fftw_plan_dft_1d(resultSignalSize, transformedSignalR, targetSignalRIft, FFTW_BACKWARD, FFTW_ESTIMATE);
+	transformedR_plan_backward = fftw_plan_dft_1d(resultSignalSize, targetSignalsRFT, targetSignalRIFT, FFTW_BACKWARD, FFTW_ESTIMATE);
 	fftw_execute(transformedR_plan_backward);
-
-	// TODO: add Debug mode
-	// printf ( "\n" );
-	// printf ( "\n#####################################\n\n\n\n\n\n" );
-	// printf ( "\n" );
-
-	// for (int i = 0; i < targetFrames; i++ )
-	// {
-	// printf ( "  %3d  %12f  %12f\n", i, 
-	// 	targetSignalIft[i][0] / ( double ) ( targetFrames ), targetSignalIft[i][1] / ( double ) ( targetFrames ) );
-	// }
 
 	float maxo[2];
 	maxo[0]=0.0f;
 	maxo[1]=0.0f;  
 
 	for (int i = 0; i < resultSignalSize; i++){
-		if (abs(maxo[0])<=abs(targetSignalLIft[i][0])) maxo[0]=targetSignalLIft[i][0];
-		if (abs(maxo[1])<=abs(targetSignalRIft[i][0])) maxo[1]=targetSignalRIft[i][0];
+		if (abs(maxo[0])<=abs(targetSignalLIFT[i][0])) maxo[0]=targetSignalLIFT[i][0];
+		if (abs(maxo[1])<=abs(targetSignalRIFT[i][0])) maxo[1]=targetSignalRIFT[i][0];
 	}
 	float maxot= abs(maxo[0])>=abs(maxo[1])? abs(maxo[0]): abs(maxo[1]);
 
 	for (int i=0; i< resultSignalSize; i++){
+		//printf("%f\n", targetSignalLIFT[i][0]);
 		float temp=0.0f;
-		outputsx[i]= (float)((targetSignalLIft[i][0])/(maxot));
-		outputdx[i]= (float)((targetSignalRIft[i][0])/(maxot));
+		outputL[i]= (float)((targetSignalLIFT[i][0])/(maxot));
+		outputR[i]= (float)((targetSignalRIFT[i][0])/(maxot));
 	}
 
-	delete [] paddedTargetSignal;
-	delete [] targetSignalSFt;
+	// delete [] paddedTargetSignal;
+	// delete [] targetSignalsLFT;
+	// delete [] targetSignalsRFT;
 
-	delete [] impulseSignalL;
-	delete [] impulseSignalLFt;
+	// delete [] impulseSignalL;
+	// delete [] impulseSignalLFT;
 
-	delete [] impulseSignalR;
-	delete [] impulseSignalRFt;
+	// delete [] impulseSignalR;
+	// delete [] impulseSignalRFT;
 
-	delete [] targetSignalLIft;
-	delete [] targetSignalRIft;
+	// delete [] targetSignalLIFT;
+	// delete [] targetSignalRIFT;
 
-	delete [] transformedSignalL;
-	delete [] transformedSignalR;
+	// delete [] transformedSignalL;
+	// delete [] transformedSignalR;
 
-	return targetFrames;
+	return resultSignalSize;
 }
 
 uint32_t convolve(fftw_complex* targetSignal,
@@ -172,4 +143,16 @@ uint32_t padTargetSignal(float* target, uint32_t sampleCount, uint32_t sampleSiz
 	}
 
 	return sampleCount * 2 - 1;
+}
+
+void printComplexArray(fftw_complex *target, uint32_t size) {
+	printf ( "\n#####################################\n\n\n\n\n\n" );
+	printf ( "Data (skipping zeros):\n" );
+	printf ( "\n" );
+
+	for (int i = 0; i < size; i++ )
+	{
+		if(target[i][0] != 0.0f || target[i][1] != 0.0f)
+		printf ( "  %3d  %12f  %12f\n", i, target[i][0], target[i][1] );
+	}
 }

@@ -152,7 +152,7 @@ int main(int argc, char const *argv[]) {
 	float* outputdx=(float*)malloc(sizeof(float) * (tansformedSignalSize));
 
 	//outputSize = CPUconvSimpleReverb(targetSignal, targetSoundFrameCount, impulsesx, impulsedx, impulseResponseFrameCount, outputsx, outputdx);
-	outputSize = CPUconvSimpleReverb(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx);
+	outputSize = CPUconvOAReverb(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx);
 
 	uint32_t outputLength = outputSize * 2  + 1;
 	printf("outputSize: \t\t%d\n", outputSize);
