@@ -64,9 +64,10 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 
 	// fourrier transform of target and impulse signal
 	// resultSignalSize, targetSignal, targetSignalFt
-	for (int i = 0; i < sampleCount; ++i)
+	for (int i = 0; i < sampleCount; i += sampleSize)
 	{
-//		convolve();
+		// colvolve only parts of the input and output buffers
+		convolve(&paddedTargetSignal[i], impulseSignalR, &targetSignalSFt[i], sampleSize);
 	}
 
 	// TODO: add Debug mode
@@ -131,28 +132,25 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 }
 
 uint32_t convolve(fftw_complex* targetSignal,
-	uint32_t targetFrames, 
 	fftw_complex* impulseSignal, 
-	uint32_t impulseFrames, 
-	fftw_complex* transformedSignal) {
+	fftw_complex* transformedSignal,
+	uint32_t sampleSize) {
 
-	uint32_t resultSize = targetFrames + impulseFrames - 1;
-
-	fftw_plan target_plan_forward = fftw_plan_dft_1d(resultSize, targetSignal, transformedSignal, FFTW_FORWARD, FFTW_ESTIMATE);	
+	fftw_plan target_plan_forward = fftw_plan_dft_1d(sampleSize, targetSignal, transformedSignal, FFTW_FORWARD, FFTW_ESTIMATE);	
 	fftw_execute(target_plan_forward);
 
-	for (int i = 0; i < resultSize; i++){
+	for (int i = 0; i < sampleSize; i++){
 		transformedSignal[i][0]= ((impulseSignal[i][0]*transformedSignal[i][1])+(impulseSignal[i][1]*transformedSignal[i][0]));
 		transformedSignal[i][1]= ((impulseSignal[i][0]*transformedSignal[i][1])+(impulseSignal[i][1]*transformedSignal[i][0]));
 	}
 
-	return targetFrames;
+	return sampleSize;
 }
 
 uint32_t padTargetSignal(float* target, uint32_t sampleCount, uint32_t sampleSize, fftw_complex* destinationBuffer) {
 
 	// cut the target signal into samplecount buffers
-	uint32_t stride = sampleSize * 2;
+	uint32_t stride = sampleSize * 2 - 1;
 
 	for (int i = 0; i < sampleCount; ++i)
 	{
