@@ -61,7 +61,7 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 	// fourrier transform of target and impulse signal
 	for (int i = 0; i < segmentCount; i += transformedSegmentSize) {
 
-		// colvolve only parts of the input and output buffers
+		// chnlvolve only parts of the input and output buffers
 		convolve(&paddedTargetSignal[i], &impulseSignalL[0], &intermediateSignalL[i], &convolvedSignalL[i], impulseFrames);
 		convolve(&paddedTargetSignal[i], &impulseSignalR[0], &intermediateSignalR[i], &convolvedSignalR[i], impulseFrames);
 	}
@@ -76,8 +76,6 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 	float maxot= abs(maxo[0])>=abs(maxo[1])? abs(maxo[0]): abs(maxo[1]);
 
 	for (int i=0; i< targetFrames + impulseFrames - 1; i++) {
-		//printf("%f\n", targetSignalLIFT[i][0]);
-		float temp=0.0f;
 		outputL[i]= (float)((mergedSignalL[i][0])/(maxot));
 		outputR[i]= (float)((mergedSignalR[i][0])/(maxot));
 	}
@@ -133,33 +131,36 @@ uint32_t padTargetSignal(float* target, uint32_t segmentCount, uint32_t segmentS
 }
 
 float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutpuBuffer, uint32_t sampleSize, uint32_t sampleCount) {
-	float max = 0; 
-
-	// copy first sample as it is into output buffer
-	for (int i = 0; i < sampleSize; ++i) {
-
-		shortOutpuBuffer[i][0] = longInputBuffer[i][0];
-		shortOutpuBuffer[i][1] = longInputBuffer[i][1];
-		max = maximum(max, longInputBuffer[i][0]);
-	}
-
-  uint32_t currentElement = 0;
+	float max = 0;
 	uint32_t stride = sampleSize * 2 - 1;
 	// start with second sample, the first one has no signal tail to merge with
-	for (int i = 1; i < sampleCount; ++i) {
-		uint32_t step = stride * i;
+	for (int i = 0; i <= sampleCount; ++i) {
+    uint32_t readHeadPosition = stride * i;
+    // tail has length samplesize - 1 so the resulting + 1
+    uint32_t readTailPosition = readHeadPosition - sampleSize + 1;
+    uint32_t writePosition = sampleSize * i;
 
-		// signal tail length is sampleSize - 1, so the last element has nothing to be added to
-		for (int k = 0; k < sampleSize - 1; ++k) {
-			shortOutpuBuffer[step + k][0] = longInputBuffer[step + k][0] + longInputBuffer[step - sampleSize + k][0];
-			shortOutpuBuffer[step + k][1] = longInputBuffer[step + k][1] + longInputBuffer[step - sampleSize + k][1];
-			max = maximum(max, longInputBuffer[step + k][0]);
-		}
-		// set last element to the same as in input buffer
-		shortOutpuBuffer[step + sampleSize][0] = shortOutpuBuffer[step + sampleSize][0];
-		shortOutpuBuffer[step + sampleSize][1] = shortOutpuBuffer[step + sampleSize][1];
-		max = maximum(max, longInputBuffer[step + sampleSize][0]);
-	}
+    for (int k = 0; k < sampleSize - 1; ++k) {
+      if (i == 0) {
+        // segment having a head and a tail to summ up
+        shortOutpuBuffer[writePosition + k][0] = longInputBuffer[readHeadPosition + k][0];
+        shortOutpuBuffer[writePosition + k][1] = longInputBuffer[readHeadPosition + k][1];
+        max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
+      } else if (i == sampleCount) {
+        // segment add the last tail to output
+        shortOutpuBuffer[writePosition + k][0] = longInputBuffer[readTailPosition + k][0];
+        shortOutpuBuffer[writePosition + k][1] = longInputBuffer[readTailPosition + k][1];
+        max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
+      } else {
+        // position is in an area where no tail exists, yet. Speaking the very first element:
+        shortOutpuBuffer[writePosition + k][0] =
+                longInputBuffer[readHeadPosition][0] ;//+ longInputBuffer[readTailPosition][0];
+        shortOutpuBuffer[writePosition + k][1] =
+                longInputBuffer[readHeadPosition][1] ;//+ longInputBuffer[readTailPosition][1];
+        max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
+      }
+    }
+  }
 
 	return max;
 }
@@ -182,4 +183,15 @@ void printComplexArray(fftw_complex *target, uint32_t size) {
 		if(target[i][0] != 0.0f || target[i][1] != 0.0f)
 		printf ( "  %3d  %12f  %12f\n", i, target[i][0], target[i][1] );
 	}
+}
+
+void compareVectors(std::vector<fftw_complex> vec0, std::vector<fftw_complex>vec1, uint32_t size) {
+  for (int i = 0; i < size; ++i) {
+    if(vec0[0] != vec1[0] || vec0[1] != vec1[1])
+    {
+      printf("Differing vectors:\n");
+      printf("%12f  %12f\n", i, vec0[0], vec1[1]);
+      printf("%12f  %12f\n", i, vec0[0], vec1[1]);
+    }
+  }
 }
