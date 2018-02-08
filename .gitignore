@@ -2,3 +2,4 @@ convreverb
 resources
 *.o
 .depend
+.idea
