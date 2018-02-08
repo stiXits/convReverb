@@ -1,33 +1,44 @@
 #include "CPUconvOAReverb.h"
 
 #include <math.h>
+#include <vector>
+#include <array>
 
 uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, float *impulseR, uint32_t impulseFrames, float *outputL, float *outputR) {
 
-	fftw_plan transformedL_plan_backward, transformedR_plan_backward, impulseL_plan_forward, impulseR_plan_forward;
-	uint32_t sampleCount = targetFrames / impulseFrames;
-	uint32_t sampleSize = 2 * impulseFrames - 1;
-	uint32_t resultSignalSize = sampleSize * sampleCount;
+	fftw_plan impulseL_plan_forward, impulseR_plan_forward;
+	uint32_t segmentCount = targetFrames / impulseFrames;
+  uint32_t segmentSize = impulseFrames;
+	uint32_t transformedSegmentSize = 2 * segmentSize - 1;
+	uint32_t transformedSignalSize = transformedSegmentSize * segmentCount;
 
 	// FFT buffers
-	fftw_complex* impulseSignalL = new fftw_complex[sampleSize];
-	fftw_complex* impulseSignalLFT = new fftw_complex[sampleSize];
+	std::vector<fftw_complex> impulseSignalL(transformedSegmentSize);
+  std::vector<fftw_complex> impulseSignalLFT(transformedSegmentSize);
 
-	fftw_complex* impulseSignalR = new fftw_complex[sampleSize];
-	fftw_complex* impulseSignalRFT = new fftw_complex[sampleSize];
+  std::vector<fftw_complex> impulseSignalR(transformedSegmentSize);
+  std::vector<fftw_complex> impulseSignalRFT(transformedSegmentSize);
 
-	fftw_complex* paddedTargetSignal = new fftw_complex[resultSignalSize];
+  std::vector<fftw_complex> paddedTargetSignal(transformedSignalSize);
 
-	fftw_complex* convolvedSignalL = new fftw_complex[resultSignalSize];
-	fftw_complex* convolvedSignalR = new fftw_complex[resultSignalSize];
+  std::vector<fftw_complex> intermediateSignalL(transformedSignalSize);
+  std::vector<fftw_complex> intermediateSignalR(transformedSignalSize);
 
-	fftw_complex* mergedSignalL = new fftw_complex[targetFrames + impulseFrames - 1];
-	fftw_complex* mergedSignalR = new fftw_complex[targetFrames + impulseFrames - 1];
+  std::vector<fftw_complex> convolvedSignalL(transformedSignalSize);
+  std::vector<fftw_complex> convolvedSignalR(transformedSignalSize);
 
-	padTargetSignal(target, sampleCount, impulseFrames, paddedTargetSignal);
+  std::vector<fftw_complex> mergedSignalL(transformedSegmentSize * segmentCount);
+  std::vector<fftw_complex> mergedSignalR(transformedSegmentSize * segmentCount);
+
+  for (int j = 0; j < transformedSignalSize; ++j) {
+    paddedTargetSignal[j][0] = 0.0f;
+    paddedTargetSignal[j][1] = 0.0f;
+  }
+
+	padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignal);
 
 	// copy impulse sound to complex buffer
-	for (int i = 0; i < sampleSize; ++i) {
+	for (int i = 0; i < transformedSegmentSize; ++i) {
 		if(i < impulseFrames) {
 			impulseSignalL[i][0] = impulseL[i];
 			impulseSignalR[i][0] = impulseR[i];
@@ -42,33 +53,33 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 	}
 
 	// apply fft to impulse l and r
-	impulseL_plan_forward = fftw_plan_dft_1d(resultSignalSize, impulseSignalL, impulseSignalLFT, FFTW_FORWARD, FFTW_ESTIMATE);
+	impulseL_plan_forward = fftw_plan_dft_1d(transformedSegmentSize, impulseSignalL.data(), impulseSignalLFT.data(), FFTW_FORWARD, FFTW_ESTIMATE);
 	fftw_execute(impulseL_plan_forward);
-	impulseR_plan_forward = fftw_plan_dft_1d(resultSignalSize, impulseSignalR, impulseSignalRFT, FFTW_FORWARD, FFTW_ESTIMATE);
+	impulseR_plan_forward = fftw_plan_dft_1d(transformedSegmentSize, impulseSignalR.data(), impulseSignalRFT.data(), FFTW_FORWARD, FFTW_ESTIMATE);
 	fftw_execute(impulseR_plan_forward);
 
 	// fourrier transform of target and impulse signal
-	// resultSignalSize, targetSignal, targetSignalFt
-	for (int i = 0; i < sampleCount; i += sampleSize) {
+	for (int i = 0; i < segmentCount; i += transformedSegmentSize) {
+
 		// colvolve only parts of the input and output buffers
-		convolve(&paddedTargetSignal[i], impulseSignalL, &convolvedSignalL[i], impulseFrames);
-		convolve(&paddedTargetSignal[i], impulseSignalR, &convolvedSignalR[i], impulseFrames);
+		convolve(&paddedTargetSignal[i], &impulseSignalL[0], &intermediateSignalL[i], &convolvedSignalL[i], impulseFrames);
+		convolve(&paddedTargetSignal[i], &impulseSignalR[0], &intermediateSignalR[i], &convolvedSignalR[i], impulseFrames);
 	}
 
 	// backward fourrier transform on transformed signal
-	// transformedL_plan_backward = fftw_plan_dft_1d(resultSignalSize, targetSignalsLFT, targetSignalLIFT, FFTW_BACKWARD, FFTW_ESTIMATE);
+	// transformedL_plan_backward = fftw_plan_dft_1d(transformedSignalSize, targetSignalsLFT, targetSignalLIFT, FFTW_BACKWARD, FFTW_ESTIMATE);
 	// fftw_execute(transformedL_plan_backward);
-	// transformedR_plan_backward = fftw_plan_dft_1d(resultSignalSize, targetSignalsRFT, targetSignalRIFT, FFTW_BACKWARD, FFTW_ESTIMATE);
+	// transformedR_plan_backward = fftw_plan_dft_1d(transformedSignalSize, targetSignalsRFT, targetSignalRIFT, FFTW_BACKWARD, FFTW_ESTIMATE);
 	// fftw_execute(transformedR_plan_backward);
 
-	//printComplexArray(convolvedSignalL, resultSignalSize);
+	//printComplexArray(convolvedSignalL, transformedSignalSize);
 
 	float maxo[2];
 	maxo[0]=0.0f;
 	maxo[1]=0.0f; 
 
-	maxo[0] = maximum(maxo[0], mergeConvolvedSignal(convolvedSignalL, mergedSignalL, sampleSize, sampleCount)); 
-	maxo[1] = maximum(maxo[1], mergeConvolvedSignal(convolvedSignalR, mergedSignalR, sampleSize, sampleCount)); 
+	maxo[0] = maximum(maxo[0], mergeConvolvedSignal(convolvedSignalL, mergedSignalL, transformedSegmentSize, segmentCount));
+	maxo[1] = maximum(maxo[1], mergeConvolvedSignal(convolvedSignalR, mergedSignalR, transformedSegmentSize, segmentCount));
 
 	float maxot= abs(maxo[0])>=abs(maxo[1])? abs(maxo[0]): abs(maxo[1]);
 
@@ -95,59 +106,57 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 	// delete [] convolvedSignalL;
 	// delete [] convolvedSignalR;
 
-	return resultSignalSize;
+	return transformedSignalSize;
 }
 
 uint32_t convolve(fftw_complex* targetSignal,
-	fftw_complex* impulseSignal, 
-	fftw_complex* transformedSignal,
-	uint32_t sampleSize) {
+                  fftw_complex* impulseSignal,
+                  fftw_complex* intermediateSignal,
+                  fftw_complex* transformedSignal,
+                  uint32_t sampleSize) {
 
 	// transform signal to frequency domaine
-	fftw_plan target_plan_forward = fftw_plan_dft_1d(sampleSize, targetSignal, transformedSignal, FFTW_FORWARD, FFTW_ESTIMATE);	
+	fftw_plan target_plan_forward = fftw_plan_dft_1d(sampleSize, targetSignal, intermediateSignal, FFTW_FORWARD, FFTW_ESTIMATE);
 	fftw_execute(target_plan_forward);
 
 	// convolve target and signal
 	for (int i = 0; i < sampleSize; i++) {
-		transformedSignal[i][0]= ((impulseSignal[i][0]*transformedSignal[i][1])+(impulseSignal[i][1]*transformedSignal[i][0]));
-		transformedSignal[i][1]= ((impulseSignal[i][0]*transformedSignal[i][1])+(impulseSignal[i][1]*transformedSignal[i][0]));
+    intermediateSignal[i][0]= ((impulseSignal[i][0]*intermediateSignal[i][0])-(impulseSignal[i][1]*intermediateSignal[i][1]));
+    intermediateSignal[i][1]= ((impulseSignal[i][0]*intermediateSignal[i][1])+(impulseSignal[i][1]*intermediateSignal[i][0]));
 	}
 
 	// transform result back to time domaine
-	fftw_plan target_plan_backward = fftw_plan_dft_1d(sampleSize, transformedSignal, targetSignal , FFTW_BACKWARD, FFTW_ESTIMATE);	
-	fftw_execute(target_plan_forward);
-
-	// switch buffers
-	transformedSignal = impulseSignal;
+	fftw_plan target_plan_backward = fftw_plan_dft_1d(sampleSize, intermediateSignal, transformedSignal , FFTW_BACKWARD, FFTW_ESTIMATE);
+	fftw_execute(target_plan_backward);
 
 	return sampleSize;
 }
 
-uint32_t padTargetSignal(float* target, uint32_t sampleCount, uint32_t sampleSize, fftw_complex* destinationBuffer) {
+uint32_t padTargetSignal(float* target, uint32_t segmentCount, uint32_t segmentSize, std::vector<fftw_complex> &destinationBuffer) {
 
 	// cut the target signal into samplecount buffers
-	uint32_t stride = sampleSize * 2 - 1;
+	uint32_t stride = segmentSize * 2 - 1;
 
-	for (int i = 0; i < sampleCount; ++i) {
+	for (int i = 0; i < segmentCount; ++i) {
 		// copy targetsignal into new buffer
-		for (int k = 0; k < sampleSize; ++k) {
+		for (int k = 0; k < segmentSize; ++k) {
 			int offset = i * stride + k;
 			destinationBuffer[offset][0] = target[offset];
 			destinationBuffer[offset][1] = 0.0f;
 		}
 
 		// pad the buffer with zeros til it reaches a size of samplecount * 2 - 1
-		for (int k = 0; k < sampleSize - 1; ++k) {
-			int offset = i * stride + sampleSize + k;
+		for (int k = 0; k < segmentSize; ++k) {
+			int offset = i * stride + segmentSize + k;
 			destinationBuffer[offset][0] = 0.0f;
 			destinationBuffer[offset][1] = 0.0f;
 		}
 	}
 
-	return sampleCount * 2 - 1;
+	return segmentCount * 2 - 1;
 }
 
-float mergeConvolvedSignal(fftw_complex *longInputBuffer, fftw_complex *shortOutpuBuffer, uint32_t sampleSize, uint32_t sampleCount) {
+float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutpuBuffer, uint32_t sampleSize, uint32_t sampleCount) {
 	float max = 0; 
 
 	// copy first sample as it is into output buffer
@@ -158,7 +167,8 @@ float mergeConvolvedSignal(fftw_complex *longInputBuffer, fftw_complex *shortOut
 		max = maximum(max, longInputBuffer[i][0]);
 	}
 
-	uint stride = sampleSize * 2 - 1;
+  uint32_t currentElement = 0;
+	uint32_t stride = sampleSize * 2 - 1;
 	// start with second sample, the first one has no signal tail to merge with
 	for (int i = 1; i < sampleCount; ++i) {
 		uint32_t step = stride * i;
