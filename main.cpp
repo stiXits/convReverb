@@ -47,15 +47,15 @@ static SndfileHandle openTargetSound(const char * fname) {
 }
 
 int main(int argc, char const *argv[]) {
-	SndfileHandle targetSound = openTargetSound("resources/basic_kick.wav");
-	SndfileHandle impulseResponse = openImpulseResponse("resources/HallA.wav");
+	SndfileHandle targetSound = openTargetSound("resources/basic_kick_X.wav");
+	SndfileHandle impulseResponse = openImpulseResponse("resources/HallA_X.wav");
 	SndfileHandle outputSound = create_file("resources/output.wav", SF_FORMAT_WAV | SF_FORMAT_PCM_16);
 
 	uint32_t outputSize = 0;
 	uint32_t targetSoundFrameCount = (uint32_t) targetSound.frames();
-	uint8_t targetSoundChannelCount = (uint8_t) targetSound.channels();
+	int targetSoundChannelCount = targetSound.channels();
 	uint32_t impulseResponseFrameCount = (uint32_t) impulseResponse.frames();
-	uint8_t impulseResponseChannelCount = (uint8_t) impulseResponse.channels();
+	int impulseResponseChannelCount = impulseResponse.channels();
 
 	printf("target sound sample count %d\n", targetSoundFrameCount);
 	printf("target sound channel count %d\n", targetSoundChannelCount);
@@ -68,8 +68,8 @@ int main(int argc, char const *argv[]) {
 
 	SNDFILE      *infile1, *infile2;
 	SF_INFO      sfinfo1, sfinfo2 ;
-	int          samp1, samp2;
-	int          sampleread;
+  uint32_t          samp1, samp2;
+	uint32_t          sampleread;
 	int chan1, chan2;
 
 	targetSound.readf(targetSignal, targetSoundFrameCount * targetSoundChannelCount);
@@ -114,16 +114,16 @@ int main(int argc, char const *argv[]) {
 	sampleread = sf_read_float (infile1, targetSignal, targetSoundFrameCount*chan1);
 	if (sampleread != targetSoundFrameCount ) 
 	{ 
-		printf ("Error!");
+		printf ("Error reading target sound");
 		return 1;
 	}
     
 	impulseSignal= (float*)malloc(sizeof(float) * impulseResponseFrameCount*chan2);
 	// Allocate host memory for the filter  
 	sampleread = sf_read_float (infile2, impulseSignal, impulseResponseFrameCount*chan2);
-	if (sampleread != impulseResponseFrameCount*chan2 ) 
+	if (sampleread != impulseResponseFrameCount * impulseResponseChannelCount )
 	{ 
-		printf ("Error!");
+		printf ("Error reading impulse response, %d", sampleread);
 		return 1;
 	}
 	// ###############################################
