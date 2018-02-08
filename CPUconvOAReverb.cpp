@@ -66,14 +66,6 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 		convolve(&paddedTargetSignal[i], &impulseSignalR[0], &intermediateSignalR[i], &convolvedSignalR[i], impulseFrames);
 	}
 
-	// backward fourrier transform on transformed signal
-	// transformedL_plan_backward = fftw_plan_dft_1d(transformedSignalSize, targetSignalsLFT, targetSignalLIFT, FFTW_BACKWARD, FFTW_ESTIMATE);
-	// fftw_execute(transformedL_plan_backward);
-	// transformedR_plan_backward = fftw_plan_dft_1d(transformedSignalSize, targetSignalsRFT, targetSignalRIFT, FFTW_BACKWARD, FFTW_ESTIMATE);
-	// fftw_execute(transformedR_plan_backward);
-
-	//printComplexArray(convolvedSignalL, transformedSignalSize);
-
 	float maxo[2];
 	maxo[0]=0.0f;
 	maxo[1]=0.0f; 
@@ -89,22 +81,6 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 		outputL[i]= (float)((mergedSignalL[i][0])/(maxot));
 		outputR[i]= (float)((mergedSignalR[i][0])/(maxot));
 	}
-
-	// delete [] paddedTargetSignal;
-	// delete [] targetSignalsLFT;
-	// delete [] targetSignalsRFT;
-
-	// delete [] impulseSignalL;
-	// delete [] impulseSignalLFT;
-
-	// delete [] impulseSignalR;
-	// delete [] impulseSignalRFT;
-
-	// delete [] targetSignalLIFT;
-	// delete [] targetSignalRIFT;
-
-	// delete [] convolvedSignalL;
-	// delete [] convolvedSignalR;
 
 	return transformedSignalSize;
 }
