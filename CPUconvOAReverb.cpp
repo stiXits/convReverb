@@ -138,7 +138,7 @@ uint32_t padTargetSignal(float* target, uint32_t segmentCount, uint32_t segmentS
 			destinationBuffer[offset][1] = 0.0f;
 		}
 
-		// pad the buffer with zeros til it reaches a size of samplecount * 2 - 1
+		// pad the buffer with zeros til it reaches a size of samplesize * 2 - 1
 		for (int k = 0; k < segmentSize; ++k) {
 			int offset = i * stride + segmentSize + k;
 			destinationBuffer[offset][0] = 0.0f;
@@ -146,7 +146,7 @@ uint32_t padTargetSignal(float* target, uint32_t segmentCount, uint32_t segmentS
 		}
 	}
 
-	return segmentCount * 2 - 1;
+	return stride;
 }
 
 float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutpuBuffer, uint32_t sampleSize, uint32_t sampleCount) {
@@ -161,21 +161,22 @@ float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vect
 
     for (int k = 0; k < sampleSize - 1; ++k) {
       if (i == 0) {
-        // segment having a head and a tail to summ up
+        // position is in an area where no tail exists, yet. Speaking the very first element:
         shortOutpuBuffer[writePosition + k][0] = longInputBuffer[readHeadPosition + k][0];
         shortOutpuBuffer[writePosition + k][1] = longInputBuffer[readHeadPosition + k][1];
         max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
-      } else if (i == sampleCount) {
+      }
+      else if (i == sampleCount) {
         // segment add the last tail to output
         shortOutpuBuffer[writePosition + k][0] = longInputBuffer[readTailPosition + k][0];
         shortOutpuBuffer[writePosition + k][1] = longInputBuffer[readTailPosition + k][1];
         max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
       } else {
-        // position is in an area where no tail exists, yet. Speaking the very first element:
+        // segment having a head and a tail to summ up
         shortOutpuBuffer[writePosition + k][0] =
-                longInputBuffer[readHeadPosition][0] ;//+ longInputBuffer[readTailPosition][0];
+                longInputBuffer[readHeadPosition][0] + longInputBuffer[readTailPosition][0];
         shortOutpuBuffer[writePosition + k][1] =
-                longInputBuffer[readHeadPosition][1] ;//+ longInputBuffer[readTailPosition][1];
+                longInputBuffer[readHeadPosition][1] + longInputBuffer[readTailPosition][1];
         max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
       }
     }
