@@ -4,6 +4,24 @@
 #include <vector>
 #include <array>
 
+// FFT buffers
+std::vector<fftw_complex> impulseSignalL;
+std::vector<fftw_complex> impulseSignalLFT;
+
+std::vector<fftw_complex> impulseSignalR;
+std::vector<fftw_complex> impulseSignalRFT;
+
+std::vector<fftw_complex> paddedTargetSignal;
+
+std::vector<fftw_complex> intermediateSignalL;
+std::vector<fftw_complex> intermediateSignalR;
+
+std::vector<fftw_complex> convolvedSignalL;
+std::vector<fftw_complex> convolvedSignalR;
+
+std::vector<fftw_complex> mergedSignalL;
+std::vector<fftw_complex> mergedSignalR;
+
 uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, float *impulseR, uint32_t impulseFrames, float *outputL, float *outputR) {
 
 	fftw_plan impulseL_plan_forward, impulseR_plan_forward;
@@ -12,30 +30,26 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 	uint32_t transformedSegmentSize = 2 * segmentSize - 1;
 	uint32_t transformedSignalSize = transformedSegmentSize * segmentCount;
 
-	// FFT buffers
-	std::vector<fftw_complex> impulseSignalL(transformedSegmentSize);
-  std::vector<fftw_complex> impulseSignalLFT(transformedSegmentSize);
+  impulseSignalL = std::vector<fftw_complex>(transformedSegmentSize);
+  impulseSignalLFT = std::vector<fftw_complex>(transformedSegmentSize);
 
-  std::vector<fftw_complex> impulseSignalR(transformedSegmentSize);
-  std::vector<fftw_complex> impulseSignalRFT(transformedSegmentSize);
+  impulseSignalR = std::vector<fftw_complex>(transformedSegmentSize);
+  impulseSignalRFT = std::vector<fftw_complex>(transformedSegmentSize);
 
-  std::vector<fftw_complex> paddedTargetSignal(transformedSignalSize);
+  paddedTargetSignal = std::vector<fftw_complex>(transformedSignalSize);
 
-  std::vector<fftw_complex> intermediateSignalL(transformedSignalSize);
-  std::vector<fftw_complex> intermediateSignalR(transformedSignalSize);
+  intermediateSignalL = std::vector<fftw_complex>(transformedSignalSize);
+  intermediateSignalR = std::vector<fftw_complex>(transformedSignalSize);
 
-  std::vector<fftw_complex> convolvedSignalL(transformedSignalSize);
-  std::vector<fftw_complex> convolvedSignalR(transformedSignalSize);
+  convolvedSignalL = std::vector<fftw_complex>(transformedSignalSize);
+  convolvedSignalR = std::vector<fftw_complex>(transformedSignalSize);
 
-  std::vector<fftw_complex> mergedSignalL(transformedSegmentSize * segmentCount);
-  std::vector<fftw_complex> mergedSignalR(transformedSegmentSize * segmentCount);
-
-  for (int j = 0; j < transformedSignalSize; ++j) {
-    paddedTargetSignal[j][0] = 0.0f;
-    paddedTargetSignal[j][1] = 0.0f;
-  }
+  mergedSignalL = std::vector<fftw_complex>(transformedSegmentSize * segmentCount);
+  mergedSignalR = std::vector<fftw_complex>(transformedSegmentSize * segmentCount);
 
 	padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignal);
+
+  printComplexArray(paddedTargetSignal.data(), transformedSegmentSize);
 
 	// copy impulse sound to complex buffer
 	for (int i = 0; i < transformedSegmentSize; ++i) {
@@ -62,8 +76,8 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 	for (int i = 0; i < segmentCount; i += transformedSegmentSize) {
 
 		// chnlvolve only parts of the input and output buffers
-		convolve(&paddedTargetSignal[i], &impulseSignalL[0], &intermediateSignalL[i], &convolvedSignalL[i], impulseFrames);
-		convolve(&paddedTargetSignal[i], &impulseSignalR[0], &intermediateSignalR[i], &convolvedSignalR[i], impulseFrames);
+		convolve(&paddedTargetSignal[i], &impulseSignalLFT[0], &intermediateSignalL[i], &convolvedSignalL[i], transformedSegmentSize);
+		convolve(&paddedTargetSignal[i], &impulseSignalRFT[0], &intermediateSignalR[i], &convolvedSignalR[i], transformedSegmentSize);
 	}
 
 	float maxo[2];
@@ -79,6 +93,11 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 		outputL[i]= (float)((mergedSignalL[i][0])/(maxot));
 		outputR[i]= (float)((mergedSignalR[i][0])/(maxot));
 	}
+
+//	for (int i=0; i< transformedSignalSize - 1; i++) {
+//		outputL[i]= (float)((convolvedSignalL[i][0])/(maxot));
+//		outputR[i]= (float)((convolvedSignalL[i][0])/(maxot));
+//	}
 
 	return transformedSignalSize;
 }
