@@ -7,21 +7,26 @@
 #include <complex>
 #include <fftw3.h>
 #include <vector>
+#include <clFFT.h>
 
 namespace gpuconv {
+
+    void setUpCL(uint32_t bufferSize);
+    void fft(float *buffer, cl_mem bufferHandle, uint32_t bufferSize, clfftDirection direction, cl_command_queue queue, cl_context ctx);
 
     uint32_t
     oAReverb(float *target, uint32_t targetFrames, float *impulsesx, float *impulsedx, uint32_t impulseFrames,
              float *outputsx, float *outputdx);
 
     uint32_t padTargetSignal(float *target, uint32_t segmentCount, uint32_t segmentSize,
-                             std::vector<fftw_complex> &destinationBuffer);
+                             float *destinationBuffer);
+    void padImpulseSignal(float *impulse, float *impulseBuffer, segmentSize);
 
     uint32_t convolve(fftw_complex *targetSignal,
                       fftw_complex *impulseSignal,
-                      fftw_complex *intermediateSignal,
-                      fftw_complex *transformedSignal,
-                      uint32_t sampleSize);
+                      uint32_t sampleSize,
+                      cl_command_queue queue,
+                      cl_context);
 
     float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutpuBuffer,
                                uint32_t sampleSize, uint32_t sampleCount);
