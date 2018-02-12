@@ -20,7 +20,7 @@ namespace gpuconv {
 
     uint32_t padTargetSignal(float *target, uint32_t segmentCount, uint32_t segmentSize,
                              float *destinationBuffer);
-    void padImpulseSignal(float *impulse, float *impulseBuffer, segmentSize);
+    void padImpulseSignal(float *impulse, float *impulseBuffer, uint32_t segmentSize);
 
     uint32_t convolve(fftw_complex *targetSignal,
                       fftw_complex *impulseSignal,

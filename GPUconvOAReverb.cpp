@@ -18,12 +18,6 @@
 
 namespace gpuconv {
 // FFT buffers
-		std::vector<fftw_complex> impulseSignalL;
-		std::vector<fftw_complex> impulseSignalLFT;
-
-		std::vector<fftw_complex> impulseSignalR;
-		std::vector<fftw_complex> impulseSignalRFT;
-
 		float *paddedTargetSignal;
     cl_mem targetBuffer;
     float *impulseSignalL;
@@ -69,9 +63,9 @@ namespace gpuconv {
 //      X = (float *)malloc(bufferSize * 2 * sizeof(*X));
 
       /* Prepare OpenCL memory objects and place data inside them. */
-      targetBuffer = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR, bufferSize * 2 * sizeof(*targetBuffer), NULL, &err );
-      impulseBufferL = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR, bufferSize * 2 * sizeof(*impulseBufferL), NULL, &err );
-      impulseBufferR = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR, bufferSize * 2 * sizeof(*impulseBufferR), NULL, &err );
+      targetBuffer = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR, bufferSize * 2 * sizeof(float), NULL, &err );
+      impulseBufferL = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR, bufferSize * 2 * sizeof(float), NULL, &err );
+      impulseBufferR = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR, bufferSize * 2 * sizeof(float), NULL, &err );
 
 
       //   ------------->do cl fft here<---------------
@@ -97,11 +91,11 @@ namespace gpuconv {
       size_t clLengths[1] = {bufferSize};
       clfftPlanHandle planHandle;
       clfftDim dim = CLFFT_1D;
-      err = clEnqueueWriteBuffer( queue, bufferHandle, CL_TRUE, 0,
-                                  bufferSize * 2 * sizeof( *buffer ), buffer, 0, NULL, NULL );
+      cl_int err = clEnqueueWriteBuffer( queue, bufferHandle, CL_TRUE, 0,
+                                  bufferSize * 2 * sizeof(float), buffer, 0, NULL, NULL );
 
       /* Fetch results of calculations. */
-      err = clEnqueueReadBuffer( queue, buffer, CL_TRUE, 0, bufferSize * 2 * sizeof( *buffer ), buffer, 0, NULL, NULL );
+      err = clEnqueueReadBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), buffer, 0, NULL, NULL );
 
       /* Create a default plan for a complex FFT. */
       err = clfftCreateDefaultPlan(&planHandle, ctx, dim, clLengths);
@@ -115,27 +109,27 @@ namespace gpuconv {
       err = clfftBakePlan(planHandle, 1, &queue, NULL, NULL);
 
       /* Execute the plan. */
-      err = clfftEnqueueTransform(planHandle, direction, 1, &queue, 0, NULL, NULL, &buffer, NULL, NULL);
+      err = clfftEnqueueTransform(planHandle, direction, 1, &queue, 0, NULL, NULL, &bufferHandle, NULL, NULL);
 
       /* Wait for calculations to be finished. */
       err = clFinish(queue);
 
       /* Fetch results of calculations. */
-      err = clEnqueueReadBuffer( queue, bufferHandle, CL_TRUE, 0, N * 2 * sizeof( *buffer ), buffer, 0, NULL, NULL );
+      err = clEnqueueReadBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), buffer, 0, NULL, NULL );
 
       err = clfftDestroyPlan( &planHandle );
     }
 
-    void padImpulseSignal(float *impulse, float *impulseBuffer, segmentSize)
+    void padImpulseSignal(float *impulse, float *impulseBuffer, uint32_t  segmentSize)
     {
       uint32_t  transformedSegmentSize = 2 * segmentSize;
 
       // copy impulse sound to complex buffer
       for (int i = 0; i < transformedSegmentSize*2 ; i += 2) {
         if (i < segmentSize) {
-          impulseBuffer[i][0] = impulseL[i];
+          impulseBuffer[i] = impulse[i];
         } else {
-          impulseBuffer[i][0] = 0.0f;
+          impulseBuffer[i] = 0.0f;
         }
 
         impulseBuffer[i + 1] = 0.0f;
@@ -152,12 +146,8 @@ namespace gpuconv {
 			uint32_t transformedSegmentSize = 2 * segmentSize;
 			uint32_t transformedSignalSize = (transformedSegmentSize - 1) * segmentCount;
 
-			impulseSignalL = std::vector<fftw_complex>(transformedSegmentSize);
-			impulseSignalLFT = std::vector<fftw_complex>(transformedSegmentSize);
-
-			impulseSignalR = std::vector<fftw_complex>(transformedSegmentSize);
-			impulseSignalRFT = std::vector<fftw_complex>(transformedSegmentSize);
-
+			impulseSignalL = new float[transformedSignalSize * 2];
+			impulseSignalR = new float[transformedSignalSize * 2];
 			paddedTargetSignal = new float[transformedSignalSize * 2];
 
 			// the resultsignal is impulsesize longer than the original
@@ -167,29 +157,29 @@ namespace gpuconv {
       setUpCL(transformedSegmentSize);
 
 			padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignal);
-      padImpulseSignal(impulseL, impulseSignalL, impulseSignalL, impulseFrames);
-      padImpulseSignal(impulseL, impulseSignalR, impulseSignalR, impulseFrames);
+      padImpulseSignal(impulseL, impulseSignalL, impulseFrames);
+      padImpulseSignal(impulseL, impulseSignalR, impulseFrames);
 
 //			printComplexArray(paddedTargetSignal.data(), transformedSegmentSize);
-      fftw(impulseSignalL, impulseBufferL, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
-      fftw(impulseSignalR, impulseBufferR, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
+      fft(impulseSignalL, impulseBufferL, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
+      fft(impulseSignalR, impulseBufferR, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
 
 			// fourrier transform of target and impulse signal
 			for (int i = 0; i < segmentCount; i += transformedSegmentSize) {
 
 				// conlvolve only parts of the input and output buffers
-				convolve(&paddedTargetSignal[i], &impulseSignalLFT[0], &intermediateSignalL[i], &convolvedSignalL[i],
-								 transformedSegmentSize);
-				convolve(&paddedTargetSignal[i], &impulseSignalRFT[0], &intermediateSignalR[i], &convolvedSignalR[i],
-								 transformedSegmentSize);
+//				convolve(&paddedTargetSignal[i], &impulseSignalLFT[0], &intermediateSignalL[i], &convolvedSignalL[i],
+//								 transformedSegmentSize);
+//				convolve(&paddedTargetSignal[i], &impulseSignalRFT[0], &intermediateSignalR[i], &convolvedSignalR[i],
+//								 transformedSegmentSize);
 			}
 
 			float maxo[2];
 			maxo[0] = 0.0f;
 			maxo[1] = 0.0f;
 
-			maxo[0] = maximum(maxo[0], mergeConvolvedSignal(convolvedSignalL, mergedSignalL, segmentSize, segmentCount));
-			maxo[1] = maximum(maxo[1], mergeConvolvedSignal(convolvedSignalR, mergedSignalR, segmentSize, segmentCount));
+//			maxo[0] = maximum(maxo[0], mergeConvolvedSignal(convolvedSignalL, mergedSignalL, segmentSize, segmentCount));
+//			maxo[1] = maximum(maxo[1], mergeConvolvedSignal(convolvedSignalR, mergedSignalR, segmentSize, segmentCount));
 
 			float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
 //
@@ -206,25 +196,29 @@ namespace gpuconv {
 			return transformedSignalSize;
 		}
 
-		uint32_t convolve(fftw_complex *targetSignal,
-											fftw_complex *impulseSignal,
+		uint32_t convolve(fftw_complex *target,
+                      cl_mem targetBuffer,
+                      cl_mem impulseBuffer,
+											fftw_complex *impulse,
 											uint32_t sampleSize,
                       cl_command_queue queue,
                       cl_context) {
 
+      float *targetSignal = (float*) target;
+      float *impulseSignal = (float*) impulse;
+
 			// transform signal to frequency domaine
-      fft(targetSignal, sampleSize, CLFFT_FORWARD, queue, ctx);
+      fft(targetSignal, targetBuffer, sampleSize, CLFFT_FORWARD, queue, ctx);
 
 			// convolve target and signal
 			for (int i = 0; i < sampleSize*2; i += 2) {
-        targetSignal[i] = ((impulseSignal[i][0] * targetSignal[i][0]) -
-																		(impulseSignal[i][1] * targetSignal[i][1]));
-        targetSignal[i + 1] = ((impulseSignal[i][0] * targetSignal[i][1]) +
-																		(impulseSignal[i][1] * targetSignal[i][0]));
+        targetSignal[i] = ((impulseSignal[0] * targetSignal[0]) -
+																		(impulseSignal[i + 1] * targetSignal[i + 1]));
+        targetSignal[i + 1] = ((impulseSignal[i] * targetSignal[i + 1]) +
+																		(impulseSignal[i + 1] * targetSignal[i]));
 			}
 
-			fftw_execute(target_plan_backward);
-      fft(targetSignal, sampleSize, CLFFT_BACKWARD, queue, ctx);
+      fft(impulseSignal, impulseBuffer, sampleSize, CLFFT_BACKWARD, queue, ctx);
 
 			return sampleSize;
 		}
