@@ -7,7 +7,6 @@
 #include	"CPUconvIdentity.h"
 #include	"CPUconvSimpleReverb.h"
 #include	"CPUconvOAReverb.h"
-#include "CPUconv.hpp"
 
 #define		BUFFER_LEN		1024
 
