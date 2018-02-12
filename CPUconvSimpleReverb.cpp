@@ -51,17 +51,6 @@ uint32_t CPUconvSimpleReverb(float *target, uint32_t targetFrames, float *impuls
 		impulseSignalDx[i][1] = 0.0f;
 	}
 
-	// TODO: add Debug mode
-	// printf ( "\n#####################################\n\n\n\n\n\n" );
-	// printf ( "  Input Data:\n" );
-	// printf ( "\n" );
-
-	// for (int i = 0; i < targetFrames; i++ )
-	// {
-	// 	printf ( "  %3d  %12f  %12f\n", i, targetSignal[i][0], targetSignal[i][1] );
-	// }
-
-	// fourrier transform of target and impulse signal
 	target_plan_forward = fftw_plan_dft_1d(resultSignalSize, targetSignal, targetSignalFt, FFTW_FORWARD, FFTW_ESTIMATE);
 	fftw_execute(target_plan_forward);
 
@@ -78,32 +67,11 @@ uint32_t CPUconvSimpleReverb(float *target, uint32_t targetFrames, float *impuls
 		transformedSignalDx[i][1] = ((impulseSignalDxFt[i][0]*targetSignalFt[i][1])+(impulseSignalDxFt[i][1]*targetSignalFt[i][0]));
 	}	
 
-	// TODO: add Debug mode
-	// printf ( "\n#####################################\n\n\n\n\n\n" );
-	// printf ( "  Output FFT Coefficients:\n" );
-	// printf ( "\n" );
-
-	// for (int i = 0; i < targetFrames; i++ )
-	// {
-	// 	printf ( "  %3d  %12f  %12f\n", i, targetSignalFt[i][0], targetSignalFt[i][1] );
-	// }
-
 	// backward fourrier transform on transformed signal
 	transformedSx_plan_backward = fftw_plan_dft_1d(resultSignalSize, transformedSignalSx, targetSignalSxIft, FFTW_BACKWARD, FFTW_ESTIMATE);
 	fftw_execute(transformedSx_plan_backward);
 	transformedDx_plan_backward = fftw_plan_dft_1d(resultSignalSize, transformedSignalDx, targetSignalDxIft, FFTW_BACKWARD, FFTW_ESTIMATE);
 	fftw_execute(transformedDx_plan_backward);
-
-	// TODO: add Debug mode
-	// printf ( "\n" );
-	// printf ( "\n#####################################\n\n\n\n\n\n" );
-	// printf ( "\n" );
-
-	// for (int i = 0; i < targetFrames; i++ )
-	// {
-	// printf ( "  %3d  %12f  %12f\n", i, 
-	// 	targetSignalIft[i][0] / ( double ) ( targetFrames ), targetSignalIft[i][1] / ( double ) ( targetFrames ) );
-	// }
 
 	float maxo[2];
 	maxo[0]=0.0f;

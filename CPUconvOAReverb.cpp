@@ -27,8 +27,8 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 	fftw_plan impulseL_plan_forward, impulseR_plan_forward;
 	uint32_t segmentCount = targetFrames / impulseFrames;
   uint32_t segmentSize = impulseFrames;
-	uint32_t transformedSegmentSize = 2 * segmentSize - 1;
-	uint32_t transformedSignalSize = transformedSegmentSize * segmentCount;
+	uint32_t transformedSegmentSize = 2 * segmentSize;
+	uint32_t transformedSignalSize = (transformedSegmentSize - 1)* segmentCount;
 
   impulseSignalL = std::vector<fftw_complex>(transformedSegmentSize);
   impulseSignalLFT = std::vector<fftw_complex>(transformedSegmentSize);
@@ -44,8 +44,9 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
   convolvedSignalL = std::vector<fftw_complex>(transformedSignalSize);
   convolvedSignalR = std::vector<fftw_complex>(transformedSignalSize);
 
-  mergedSignalL = std::vector<fftw_complex>(transformedSegmentSize * segmentCount);
-  mergedSignalR = std::vector<fftw_complex>(transformedSegmentSize * segmentCount);
+  // the resultsignal is impulsesize longer than the original
+  mergedSignalL = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
+  mergedSignalR = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
 
 	padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignal);
 
@@ -88,16 +89,16 @@ uint32_t CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulseL, 
 	maxo[1] = maximum(maxo[1], mergeConvolvedSignal(convolvedSignalR, mergedSignalR, segmentSize, segmentCount));
 
 	float maxot= abs(maxo[0])>=abs(maxo[1])? abs(maxo[0]): abs(maxo[1]);
+//
+//  for(int j=0; j< segmentSize * (segmentCount + 1); j++){
+//    outputL[j]=0.0f;
+//    outputR[j]=0.0f;
+//  }
 
 	for (int i=0; i< targetFrames + impulseFrames - 1; i++) {
 		outputL[i]= (float)((mergedSignalL[i][0])/(maxot));
 		outputR[i]= (float)((mergedSignalR[i][0])/(maxot));
 	}
-
-//	for (int i=0; i< transformedSignalSize - 1; i++) {
-//		outputL[i]= (float)((convolvedSignalL[i][0])/(maxot));
-//		outputR[i]= (float)((convolvedSignalL[i][0])/(maxot));
-//	}
 
 	return transformedSignalSize;
 }
@@ -166,19 +167,19 @@ float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vect
         shortOutpuBuffer[writePosition + k][1] = longInputBuffer[readHeadPosition + k][1];
         max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
       }
-      else if (i == sampleCount) {
-        // segment add the last tail to output
-        shortOutpuBuffer[writePosition + k][0] = longInputBuffer[readTailPosition + k][0];
-        shortOutpuBuffer[writePosition + k][1] = longInputBuffer[readTailPosition + k][1];
-        max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
-      } else {
-        // segment having a head and a tail to summ up
-        shortOutpuBuffer[writePosition + k][0] =
-                longInputBuffer[readHeadPosition][0] + longInputBuffer[readTailPosition][0];
-        shortOutpuBuffer[writePosition + k][1] =
-                longInputBuffer[readHeadPosition][1] + longInputBuffer[readTailPosition][1];
-        max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
-      }
+//      else if (i == sampleCount) {
+//        // segment add the last tail to output
+//        shortOutpuBuffer[writePosition + k][0] = longInputBuffer[readTailPosition + k][0];
+//        shortOutpuBuffer[writePosition + k][1] = longInputBuffer[readTailPosition + k][1];
+//        max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
+//      } else {
+//        // segment having a head and a tail to summ up
+//        shortOutpuBuffer[writePosition + k][0] =
+//                longInputBuffer[readHeadPosition][0] + longInputBuffer[readTailPosition][0];
+//        shortOutpuBuffer[writePosition + k][1] =
+//                longInputBuffer[readHeadPosition][1] + longInputBuffer[readTailPosition][1];
+//        max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
+//      }
     }
   }
 

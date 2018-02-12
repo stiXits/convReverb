@@ -7,6 +7,7 @@
 #include	"CPUconvIdentity.h"
 #include	"CPUconvSimpleReverb.h"
 #include	"CPUconvOAReverb.h"
+#include "CPUconv.hpp"
 
 #define		BUFFER_LEN		1024
 
@@ -151,8 +152,8 @@ int main(int argc, char const *argv[]) {
 	float* outputsx=(float*)malloc(sizeof(float) * (tansformedSignalSize));
 	float* outputdx=(float*)malloc(sizeof(float) * (tansformedSignalSize));
 
-	//outputSize = CPUconvSimpleReverb(targetSignal, targetSoundFrameCount, impulsesx, impulsedx, impulseResponseFrameCount, outputsx, outputdx);
 	outputSize = CPUconvOAReverb(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx);
+	//outputSize = CPUconv(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx,0);
 
 	uint32_t outputLength = outputSize * 2  + 1;
 	printf("outputSize: \t\t%d\n", outputSize);
