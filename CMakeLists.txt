@@ -16,4 +16,4 @@ add_executable(impl
         CPUconvSimpleReverb.h
         main.cpp)
 
-target_link_libraries(impl sndfile fftw3)
+target_link_libraries(impl sndfile fftw3 clFFT arm_compute arm_compute_core OpenCL)

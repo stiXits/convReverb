@@ -3,6 +3,18 @@
 #include <math.h>
 #include <vector>
 #include <array>
+#include <clFFT.h>
+
+#ifndef ARM_COMPUTE_CL /* Needed by Utils.cpp to handle OpenCL exceptions properly */
+//#error "This example needs to be built with -DARM_COMPUTE_CL"
+#endif /* ARM_COMPUTE_CL */
+
+#include "arm_compute/core/Types.h"
+#include "arm_compute/runtime/CL/CLFunctions.h"
+#include "arm_compute/runtime/CL/CLScheduler.h"
+#include "utils/Utils.h"
+
+using namespace arm_compute;
 
 namespace gpuconv {
 // FFT buffers
@@ -23,9 +35,15 @@ namespace gpuconv {
 		std::vector<fftw_complex> mergedSignalL;
 		std::vector<fftw_complex> mergedSignalR;
 
+    void setUpCL() {
+      CLScheduler::get().default_init();
+    }
+
 		uint32_t
 		oAReverb(float *target, uint32_t targetFrames, float *impulseL, float *impulseR, uint32_t impulseFrames,
 										float *outputL, float *outputR) {
+
+      setUpCL();
 
 			fftw_plan impulseL_plan_forward, impulseR_plan_forward;
 			uint32_t segmentCount = targetFrames / impulseFrames;
