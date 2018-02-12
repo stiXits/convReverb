@@ -10,6 +10,8 @@ add_executable(impl
         CPUconvIdentity.h
         CPUconvOAReverb.cpp
         CPUconvOAReverb.h
+        GPUconvOAReverb.cpp
+        GPUconvOAReverb.h
         CPUconvSimpleReverb.cpp
         CPUconvSimpleReverb.h
         main.cpp)
