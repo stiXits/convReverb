@@ -63,9 +63,14 @@ namespace gpuconv {
 //      X = (float *)malloc(bufferSize * 2 * sizeof(*X));
 
       /* Prepare OpenCL memory objects and place data inside them. */
-      targetBuffer = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR, bufferSize * 2 * sizeof(float), NULL, &err );
+//      targetBuffer = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR, bufferSize * 2 * sizeof(float), NULL, &err );
       impulseBufferL = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR, bufferSize * 2 * sizeof(float), NULL, &err );
+			err = clEnqueueWriteBuffer( queue, impulseBufferL, CL_TRUE, 0,
+																	bufferSize * 2 * sizeof(float), impulseSignalL, 0, NULL, NULL );
+
       impulseBufferR = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR, bufferSize * 2 * sizeof(float), NULL, &err );
+			err = clEnqueueWriteBuffer( queue, impulseBufferR, CL_TRUE, 0,
+																	bufferSize * 2 * sizeof(float), impulseSignalR, 0, NULL, NULL );
 
 
       //   ------------->do cl fft here<---------------
@@ -91,11 +96,9 @@ namespace gpuconv {
       size_t clLengths[1] = {bufferSize};
       clfftPlanHandle planHandle;
       clfftDim dim = CLFFT_1D;
-      cl_int err = clEnqueueWriteBuffer( queue, bufferHandle, CL_TRUE, 0,
-                                  bufferSize * 2 * sizeof(float), buffer, 0, NULL, NULL );
 
       /* Fetch results of calculations. */
-      err = clEnqueueReadBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), buffer, 0, NULL, NULL );
+      cl_int err = clEnqueueReadBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), buffer, 0, NULL, NULL );
 
       /* Create a default plan for a complex FFT. */
       err = clfftCreateDefaultPlan(&planHandle, ctx, dim, clLengths);
@@ -164,15 +167,8 @@ namespace gpuconv {
       fft(impulseSignalL, impulseBufferL, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
       fft(impulseSignalR, impulseBufferR, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
 
-			// fourrier transform of target and impulse signal
-			for (int i = 0; i < segmentCount; i += transformedSegmentSize) {
 
-				// conlvolve only parts of the input and output buffers
-//				convolve(&paddedTargetSignal[i], &impulseSignalLFT[0], &intermediateSignalL[i], &convolvedSignalL[i],
-//								 transformedSegmentSize);
-//				convolve(&paddedTargetSignal[i], &impulseSignalRFT[0], &intermediateSignalR[i], &convolvedSignalR[i],
-//								 transformedSegmentSize);
-			}
+
 
 			float maxo[2];
 			maxo[0] = 0.0f;
@@ -196,10 +192,32 @@ namespace gpuconv {
 			return transformedSignalSize;
 		}
 
-		uint32_t convolve(fftw_complex *target,
+		uint32_t transform(float *target,
+											 float *impulse,
+											 cl_mem impulseBuffer,
+											 uint32_t sampleSize,
+											 uint32_t segmentCount,
+											 cl_command_queue queue,
+											 cl_context) {
+			cl_int err = 0;
+			uint32_t transformedSegmentSize = 2 * segmentCount;
+
+			cl_mem targetBuffer = clCreateBuffer( ctx, CL_MEM_READ_WRITE, sampleSize * 2 * sizeof(float), NULL, &err );
+			err = clEnqueueWriteBuffer( queue, targetBuffer, CL_TRUE, 0,
+																				 sampleSize * 2 * sizeof(float), target, 0, NULL, NULL );
+
+			for (int i = 0; i < segmentCount; i += transformedSegmentSize) {
+
+				// conlvolve only parts of the input and output buffers
+				convolve(&target[i], targetBuffer, &impulse[i], impulseBufferL,
+								 transformedSegmentSize, queue, ctx);
+			}
+		}
+
+		uint32_t convolve(float *target,
                       cl_mem targetBuffer,
-                      cl_mem impulseBuffer,
-											fftw_complex *impulse,
+											float *impulse,
+											cl_mem impulseBuffer,
 											uint32_t sampleSize,
                       cl_command_queue queue,
                       cl_context) {
