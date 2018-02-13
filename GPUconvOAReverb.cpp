@@ -135,15 +135,15 @@ namespace gpuconv {
 			uint32_t segmentCount = targetFrames / impulseFrames;
 			uint32_t segmentSize = impulseFrames;
 			uint32_t transformedSegmentSize = 2 * segmentSize;
-			uint32_t transformedSignalSize = (transformedSegmentSize - 1) * segmentCount;
+			uint32_t transformedSignalSize = (transformedSegmentSize) * segmentCount;
 
       printf("segmentcount: %d\n segmentSize: %d\n transformedSegmentSize: %d\n transformedSignalSize: %d\n",
              segmentCount, segmentSize, transformedSegmentSize, transformedSignalSize);
 
 			impulseSignalL = new float[transformedSignalSize * 2];
 			impulseSignalR = new float[transformedSignalSize * 2];
-			paddedTargetSignalL = new float[transformedSignalSize * 2];
       paddedTargetSignalR = new float[transformedSignalSize * 2];
+      paddedTargetSignalL = new float[transformedSignalSize * 2];
 
 			// the resultsignal is impulsesize longer than the original
 			mergedSignalL = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
@@ -155,14 +155,16 @@ namespace gpuconv {
       padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignalR);
       padImpulseSignal(impulseL, impulseSignalL, impulseFrames);
       padImpulseSignal(impulseL, impulseSignalR, impulseFrames);
+      printArray(paddedTargetSignalL, transformedSignalSize * 2);
+      printArray(impulseSignalL, transformedSignalSize*2);
 
       fft(impulseSignalL, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
       fft(impulseSignalR, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
 
       transform(paddedTargetSignalL, impulseSignalL, transformedSegmentSize, segmentCount, queue, ctx);
       transform(paddedTargetSignalR, impulseSignalR, transformedSegmentSize, segmentCount, queue, ctx);
-
-      compareVectors(paddedTargetSignalL, paddedTargetSignalR, transformedSegmentSize*2);
+//
+//      compareVectors(paddedTargetSignalL, paddedTargetSignalR, transformedSegmentSize*2);
 
 			float maxo[2];
 			maxo[0] = 0.0f;
@@ -171,19 +173,22 @@ namespace gpuconv {
 //			maxo[0] = maximum(maxo[0], mergeConvolvedSignal(paddedTargetSignalL, mergedSignalL, segmentSize, segmentCount));
 //			maxo[1] = maximum(maxo[1], mergeConvolvedSignal(paddedTargetSignalR, mergedSignalR, segmentSize, segmentCount));
 
-      for (int j = 0; j < transformedSegmentSize * 2; j += 2) {
+      for (int j = 0; j < transformedSignalSize * 2; j += 2) {
         maxo[0] = maximum(maxo[0], paddedTargetSignalL[j]);
         maxo[1] = maximum(maxo[1], paddedTargetSignalR[j]);
       }
 
 			float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
 
-			for (int i = 0; i < (targetFrames + impulseFrames - 1); i += 2) {
-				outputL[i] = ((paddedTargetSignalL[i]) / (maxot));
-				outputR[i] = ((paddedTargetSignalR[i]) / (maxot));
+			for (int i = 0; i < transformedSignalSize; i++) {
+				outputL[i] = ((paddedTargetSignalL[i * 2]) / (maxot));
+				outputR[i] = ((paddedTargetSignalR[i * 2]) / (maxot));
+//        outputL[i] = ((paddedTargetSignalL[i * 2]));
+//				outputR[i] = ((paddedTargetSignalR[i * 2]));
 			}
 
-      compareVectors(outputL, outputR, (targetFrames + impulseFrames - 1) * 2);
+//      printArray(outputL, transformedSignalSize);
+//      compareVectors(outputL, outputR, transformedSignalSize);
 
       tearDown();
 
@@ -196,17 +201,13 @@ namespace gpuconv {
 											 uint32_t segmentCount,
 											 cl_command_queue queue,
 											 cl_context) {
-
       printf("begin transform\n");
 			cl_int err = 0;
-
       printf("create buffer for target signal: %d\n", err);
-
 			for (int i = 0; i < segmentCount; i += sampleSize * 2) {
 				// conlvolve only parts of the input and output buffers
 				convolve(&target[i], impulse, sampleSize, queue, ctx);
 			}
-
       printf("end transform\n");
 		}
 
@@ -239,25 +240,27 @@ namespace gpuconv {
 														 float *destinationBuffer) {
 
 			// cut the target signal into samplecount buffers
-			uint32_t stride = segmentSize * 2 - 1;
-
-			for (int i = 0; i < segmentCount*2; i += 2) {
+			for (int i = 0; i < segmentCount; i++) {
 				// copy targetsignal into new buffer
-				for (int k = 0; k < segmentSize; ++k) {
-					int offset = i * stride + k;
-					destinationBuffer[offset] = target[offset];
-					destinationBuffer[offset + 1] = 0.0f;
-				}
+				for (int k = 0; k < segmentSize*2; k += 2) {
+					int readOffset = segmentSize * 2 * i + k;
+          int writeOffset = segmentSize * 4 * i + k;
+					destinationBuffer[writeOffset] = target[readOffset];
+					destinationBuffer[writeOffset + 1] = 0.0f;
+//          printf("%d = %f\n", writeOffset, target[readOffset]);
+//          printf("%d = %f\n", writeOffset + 1, 0.0f);
+        }
 
 				// pad the buffer with zeros til it reaches a size of samplesize * 2 - 1
-				for (int k = 0; k < segmentSize*2; ++k) {
-					int offset = i * stride + segmentSize + k;
-					destinationBuffer[offset] = 0.0f;
-					destinationBuffer[offset + 1] = 0.0f;
+				for (int k = 0; k < segmentSize*2; k += 2) {
+					int writeOffset = segmentSize * i * 4 + 2 * segmentSize +  k;
+					destinationBuffer[writeOffset] = 0.0f;
+					destinationBuffer[writeOffset + 1] = 0.0f;
+//          printf("%d = %f\n", writeOffset, 0.0f);
+//          printf("%d = %f\n", writeOffset + 1, 0.0f);
 				}
 			}
 
-			return stride;
 		}
 
 		float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutpuBuffer,
@@ -310,10 +313,10 @@ namespace gpuconv {
 			printf("Data (skipping zeros):\n");
 			printf("\n");
 
-			for (int i = 0; i < size*2; i+=2) {
-        bool condition = (abs(target[i]) > 0.1 || abs(target[i + 1]) > 0.1);
+			for (int i = 0; i < size; i++) {
+        bool condition = (abs(target[i]) > 0.01);
 				if(condition) {
-          printf("  %3d  %12f  %12f\n", i / 2, target[i], target[i + 1]);
+          printf("  %3d  %12f \n", i, target[i]);
         }
 			}
 		}
