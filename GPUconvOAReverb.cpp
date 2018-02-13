@@ -1,7 +1,6 @@
 #include "GPUconvOAReverb.h"
 
 #include <math.h>
-#include <array>
 
 //#ifndef ARM_COMPUTE_CL /* Needed by Utils.cpp to handle OpenCL exceptions properly */
 ////#error "This example needs to be built with -DARM_COMPUTE_CL"
@@ -21,8 +20,8 @@ namespace gpuconv {
     float *impulseSignalL;
     float *impulseSignalR;
 
-		std::vector<fftw_complex> mergedSignalL;
-		std::vector<fftw_complex> mergedSignalR;
+		float *mergedSignalL;
+		float *mergedSignalR;
 
     cl_context ctx = 0;
     cl_command_queue queue = 0;
@@ -146,8 +145,8 @@ namespace gpuconv {
       paddedTargetSignalL = new float[transformedSignalSize * 2];
 
 			// the resultsignal is impulsesize longer than the original
-			mergedSignalL = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
-			mergedSignalR = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
+			mergedSignalL = new float[transformedSignalSize * 2];
+			mergedSignalR = new float[transformedSignalSize * 2];
 
       setUpCL();
 
@@ -170,13 +169,13 @@ namespace gpuconv {
 			maxo[0] = 0.0f;
 			maxo[1] = 0.0f;
 
-//			maxo[0] = maximum(maxo[0], mergeConvolvedSignal(paddedTargetSignalL, mergedSignalL, segmentSize, segmentCount));
-//			maxo[1] = maximum(maxo[1], mergeConvolvedSignal(paddedTargetSignalR, mergedSignalR, segmentSize, segmentCount));
+			maxo[0] = maximum(maxo[0], mergeConvolvedSignal(paddedTargetSignalL, mergedSignalL, segmentSize, segmentCount));
+			maxo[1] = maximum(maxo[1], mergeConvolvedSignal(paddedTargetSignalR, mergedSignalR, segmentSize, segmentCount));
 
-      for (int j = 0; j < transformedSignalSize * 2; j += 2) {
-        maxo[0] = maximum(maxo[0], paddedTargetSignalL[j]);
-        maxo[1] = maximum(maxo[1], paddedTargetSignalR[j]);
-      }
+//      for (int j = 0; j < transformedSignalSize * 2; j += 2) {
+//        maxo[0] = maximum(maxo[0], paddedTargetSignalL[j]);
+//        maxo[1] = maximum(maxo[1], paddedTargetSignalR[j]);
+//      }
 
 			float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
 
@@ -204,9 +203,9 @@ namespace gpuconv {
       printf("begin transform\n");
 			cl_int err = 0;
       printf("create buffer for target signal: %d\n", err);
-			for (int i = 0; i < segmentCount; i += sampleSize * 2) {
+			for (int i = 0; i < segmentCount; i++) {
 				// conlvolve only parts of the input and output buffers
-				convolve(&target[i], impulse, sampleSize, queue, ctx);
+				convolve(&target[i * sampleSize * 2], impulse, sampleSize, queue, ctx);
 			}
       printf("end transform\n");
 		}
@@ -263,7 +262,7 @@ namespace gpuconv {
 
 		}
 
-		float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutpuBuffer,
+		float mergeConvolvedSignal(float *longInputBuffer, float *shortOutpuBuffer,
 															 uint32_t sampleSize, uint32_t sampleCount) {
 			float max = 0;
 			uint32_t stride = sampleSize * 2 - 1;
@@ -274,26 +273,26 @@ namespace gpuconv {
 				uint32_t readTailPosition = readHeadPosition - sampleSize + 1;
 				uint32_t writePosition = sampleSize * i;
 
-				for (int k = 0; k < sampleSize - 1; ++k) {
+				for (int k = 0; k < (sampleSize - 1) * 2; k += 1) {
 					if (i == 0) {
 						// position is in an area where no tail exists, yet. Speaking the very first element:
-						shortOutpuBuffer[writePosition + k][0] = longInputBuffer[readHeadPosition + k][0];
-						shortOutpuBuffer[writePosition + k][1] = longInputBuffer[readHeadPosition + k][1];
-						max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
+						shortOutpuBuffer[writePosition + k] = longInputBuffer[readHeadPosition + k];
+						shortOutpuBuffer[writePosition + k + 1] = longInputBuffer[readHeadPosition + k + 1];
+						max = maximum(max, shortOutpuBuffer[writePosition + k]);
 					}
-//      else if (i == sampleCount) {
-//        // segment add the last tail to output
-//        shortOutpuBuffer[writePosition + k][0] = longInputBuffer[readTailPosition + k][0];
-//        shortOutpuBuffer[writePosition + k][1] = longInputBuffer[readTailPosition + k][1];
-//        max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
-//      } else {
-//        // segment having a head and a tail to summ up
-//        shortOutpuBuffer[writePosition + k][0] =
-//                longInputBuffer[readHeadPosition][0] + longInputBuffer[readTailPosition][0];
-//        shortOutpuBuffer[writePosition + k][1] =
-//                longInputBuffer[readHeadPosition][1] + longInputBuffer[readTailPosition][1];
-//        max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
-//      }
+        else if (i == sampleCount) {
+          // segment add the last tail to output
+          shortOutpuBuffer[writePosition + k] = longInputBuffer[readTailPosition + k];
+          shortOutpuBuffer[writePosition + k + 1] = longInputBuffer[readTailPosition + k + 1];
+          max = maximum(max, shortOutpuBuffer[writePosition + k]);
+        } else {
+          // segment having a head and a tail to summ up
+          shortOutpuBuffer[writePosition + k] =
+                  longInputBuffer[readHeadPosition] + longInputBuffer[readTailPosition];
+          shortOutpuBuffer[writePosition + k + 1] =
+                  longInputBuffer[readHeadPosition + 1] + longInputBuffer[readTailPosition + 1];
+          max = maximum(max, shortOutpuBuffer[writePosition + k]);
+        }
 				}
 			}
 

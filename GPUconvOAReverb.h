@@ -35,7 +35,7 @@ namespace gpuconv {
                       cl_command_queue queue,
                       cl_context);
 
-    float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutpuBuffer,
+    float mergeConvolvedSignal(float *longInputBuffer, float *shortOutpuBuffer,
                                uint32_t sampleSize, uint32_t sampleCount);
 
     void printArray(float *target, uint32_t size);
