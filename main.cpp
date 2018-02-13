@@ -44,7 +44,7 @@ static SndfileHandle openTargetSound(const char * fname) {
 }
 
 int main(int argc, char const *argv[]) {
-	SndfileHandle targetSound = openTargetSound("resources/brazz_2X.wav");
+	SndfileHandle targetSound = openTargetSound("resources/basic_kick_2X.wav");
 	SndfileHandle impulseResponse = openImpulseResponse("resources/HallA_X.wav");
 	SndfileHandle outputSound = create_file("resources/output.wav", SF_FORMAT_WAV | SF_FORMAT_PCM_16);
 
@@ -73,7 +73,7 @@ int main(int argc, char const *argv[]) {
 	impulseResponse.readf(impulseSignal, impulseResponseChannelCount * impulseResponseChannelCount);
     
     
-	infile1 = sf_open ("resources/brazz_2X.wav", SFM_READ, &sfinfo1);
+	infile1 = sf_open ("resources/basic_kick_2X.wav", SFM_READ, &sfinfo1);
 	if (infile1 == NULL)
 	{   
 		printf ("Unable to open file 1.\n");
@@ -149,7 +149,7 @@ int main(int argc, char const *argv[]) {
 	float* outputdx=(float*)malloc(sizeof(float) * (tansformedSignalSize));
 
 //	outputSize = gpuconv::oAReverb(targetSignal, 65536*2, filtersx, filterdx, 4096*2, outputsx, outputdx);
-  outputSize = gpuconv::oAReverb(targetSignal, 512, filtersx, filterdx, 128, outputsx, outputdx);
+  outputSize = gpuconv::oAReverb(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount , outputsx, outputdx);
 //  outputSize = gpuconv::oAReverb(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount,
 //                                 outputsx, outputdx);
 //	outputSize = CPUconv(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx,0);
@@ -167,30 +167,9 @@ int main(int argc, char const *argv[]) {
 	for (int i = 0; i < outputSize; i++) {
 		outputSoundSignal[2*i]=(outputsx[i]);
 		outputSoundSignal[2*i+1]=(outputdx[i]);
-		//printf("outputSoundSignal[%d] outputsx[%d]\n", 2*i+1, i);
 	}
 
 	outputSound.write(outputSoundSignal, outputSize * 2 ) ;
-	//float* outputsx=(float*)malloc(sizeof(float) * (impulseResponseFrameCount+targetSoundFrameCount-1));
-	//float* outputdx=(float*)malloc(sizeof(float) * (impulseResponseFrameCount+targetSoundFrameCount-1));
-
-/*	printf("Outputsite: %d\n", new_size);
-
-	new_size = CPUconv(input1, impulseResponseFrameCount, filtersx, filterdx, targetSoundFrameCount, outputsx, outputdx 1);
-
-	SF_INFO sfinfout;
-	sfinfout.channels=2;
-	sfinfout.samplerate=targetSound.samplerate();
-	sfinfout.format=targetSound.format();
-	SNDFILE *outfile;
-	outfile = sf_open (argv[3], SFM_WRITE, &sfinfout);
-	float* output=(float*)malloc(sizeof(float) * new_size * sfinfout.channels);
-	for (int i = 0; i < new_size; i++) {
-		output[2*i]=(outputsx[i]);
-		output[2*i+1]=(outputdx[i]);
-	}
-	sf_write_float(outfile, output, new_size * 2);
-	sf_close(outfile);*/
 
 	return 0;
 }

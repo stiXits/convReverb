@@ -2,17 +2,6 @@
 
 #include <math.h>
 
-//#ifndef ARM_COMPUTE_CL /* Needed by Utils.cpp to handle OpenCL exceptions properly */
-////#error "This example needs to be built with -DARM_COMPUTE_CL"
-//#endif /* ARM_COMPUTE_CL */
-//
-//#include "arm_compute/core/Types.h"
-//#include "arm_compute/runtime/CL/CLFunctions.h"
-//#include "arm_compute/runtime/CL/CLScheduler.h"
-//#include "utils/Utils.h"
-//
-//using namespace arm_compute;
-
 namespace gpuconv {
 // FFT buffers
 		float *paddedTargetSignalL;
@@ -154,16 +143,12 @@ namespace gpuconv {
       padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignalR);
       padImpulseSignal(impulseL, impulseSignalL, impulseFrames);
       padImpulseSignal(impulseL, impulseSignalR, impulseFrames);
-//      printArray(paddedTargetSignalL, transformedSignalSize * 2);
-//      printArray(impulseSignalL, transformedSignalSize*2);
 
-//      fft(impulseSignalL, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
-//      fft(impulseSignalR, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
-//
-//      transform(paddedTargetSignalL, impulseSignalL, transformedSegmentSize, segmentCount, queue, ctx);
-//      transform(paddedTargetSignalR, impulseSignalR, transformedSegmentSize, segmentCount, queue, ctx);
-//
-//      compareVectors(paddedTargetSignalL, paddedTargetSignalR, transformedSegmentSize*2);
+      fft(impulseSignalL, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
+      fft(impulseSignalR, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
+
+      transform(paddedTargetSignalL, impulseSignalL, transformedSegmentSize, segmentCount, queue, ctx);
+      transform(paddedTargetSignalR, impulseSignalR, transformedSegmentSize, segmentCount, queue, ctx);
 
 			float maxo[2];
 			maxo[0] = 0.0f;
@@ -184,12 +169,7 @@ namespace gpuconv {
         outputR[i] = ((mergedSignalR[i * 2]) / (maxot));
 //				outputL[i] = ((paddedTargetSignalL[i * 2]) / (maxot));
 //				outputR[i] = ((paddedTargetSignalR[i * 2]) / (maxot));
-//        outputL[i] = ((paddedTargetSignalL[i * 2]));
-//				outputR[i] = ((paddedTargetSignalR[i * 2]));
 			}
-
-//      printArray(outputL, transformedSignalSize);
-//      compareVectors(outputL, outputR, transformedSignalSize);
 
       tearDown();
 
