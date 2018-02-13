@@ -1,9 +1,7 @@
 #include "GPUconvOAReverb.h"
 
 #include <math.h>
-#include <vector>
 #include <array>
-#include <clFFT.h>
 
 //#ifndef ARM_COMPUTE_CL /* Needed by Utils.cpp to handle OpenCL exceptions properly */
 ////#error "This example needs to be built with -DARM_COMPUTE_CL"
@@ -29,23 +27,17 @@ namespace gpuconv {
     cl_context ctx = 0;
     cl_command_queue queue = 0;
 
-    void setUpCL(uint32_t bufferSize) {
-//      CLScheduler::get().default_init();
+    void setUpCL() {
       cl_int err;
       cl_platform_id platform = 0;
       cl_device_id device = 0;
       cl_context_properties props[3] = { CL_CONTEXT_PLATFORM, 0, 0 };
 
-      cl_event event = NULL;
       int ret = 0;
 
-      /* FFT library realted declarations */
-      clfftPlanHandle planHandle;
-      clfftDim dim = CLFFT_1D;
-
       /* Setup OpenCL environment. */
-      err = clGetPlatformIDs( 1, &platform, NULL );
-      err = clGetDeviceIDs( platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL );
+      err += clGetPlatformIDs( 1, &platform, NULL );
+      err += clGetDeviceIDs( platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL );
 
       props[1] = (cl_context_properties)platform;
       ctx = clCreateContext( props, 1, &device, NULL, NULL, &err );
@@ -53,22 +45,8 @@ namespace gpuconv {
 
       /* Setup clFFT. */
       clfftSetupData fftSetup;
-      err = clfftInitSetupData(&fftSetup);
-      err = clfftSetup(&fftSetup);
-
-      /* Allocate host & initialize data. */
-      /* Only allocation shown for simplicity. */
-//      X = (float *)malloc(bufferSize * 2 * sizeof(*X));
-
-      /* Prepare OpenCL memory objects and place data inside them. */
-//      targetBufferL = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR, bufferSize * 2 * sizeof(float), NULL, &err );
-
-
-
-      //   ------------->do cl fft here<---------------
-
-
-//      return ret;
+      err += clfftInitSetupData(&fftSetup);
+      err += clfftSetup(&fftSetup);
       printf("finished opencl setup with: %d\n", ret);
       return;
     }
@@ -92,11 +70,11 @@ namespace gpuconv {
       clfftDim dim = CLFFT_1D;
 
       /* Fetch results of calculations. */
-      cl_int err;
+      cl_int err = 0;
 
       cl_mem bufferHandle = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR , bufferSize * 2 * sizeof(float), NULL, &err );
       err = clEnqueueWriteBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), buffer, 0, NULL, NULL );
-      printf("enque write buffer: %d", err);
+      printf("enque write buffer: %d\n", err);
 
       /* Create a default plan for a complex FFT. */
       err = clfftCreateDefaultPlan(&planHandle, ctx, dim, clLengths);
@@ -159,6 +137,9 @@ namespace gpuconv {
 			uint32_t transformedSegmentSize = 2 * segmentSize;
 			uint32_t transformedSignalSize = (transformedSegmentSize - 1) * segmentCount;
 
+      printf("segmentcount: %d\n segmentSize: %d\n transformedSegmentSize: %d\n transformedSignalSize: %d\n",
+             segmentCount, segmentSize, transformedSegmentSize, transformedSignalSize);
+
 			impulseSignalL = new float[transformedSignalSize * 2];
 			impulseSignalR = new float[transformedSignalSize * 2];
 			paddedTargetSignalL = new float[transformedSignalSize * 2];
@@ -168,20 +149,20 @@ namespace gpuconv {
 			mergedSignalL = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
 			mergedSignalR = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
 
-      setUpCL(transformedSegmentSize);
+      setUpCL();
 
 			padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignalL);
       padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignalR);
       padImpulseSignal(impulseL, impulseSignalL, impulseFrames);
-      padImpulseSignal(impulseL, impulseSignalR, impulseFrames);
+      padImpulseSignal(impulseR, impulseSignalR, impulseFrames);
 
       fft(impulseSignalL, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
-      fft(impulseSignalL, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
+      fft(impulseSignalR, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
 
       transform(paddedTargetSignalL, impulseSignalL, transformedSegmentSize, segmentCount, queue, ctx);
       transform(paddedTargetSignalR, impulseSignalR, transformedSegmentSize, segmentCount, queue, ctx);
 
-      printComplexArray(paddedTargetSignalL, transformedSignalSize);
+      printArray(paddedTargetSignalL, transformedSignalSize);
 
 			float maxo[2];
 			maxo[0] = 0.0f;
@@ -216,13 +197,12 @@ namespace gpuconv {
 
       printf("begin transform");
 			cl_int err = 0;
-			uint32_t transformedSegmentSize = 2 * sampleSize;
 
       printf("create buffer for target signal: %d\n", err);
 
-			for (int i = 0; i < segmentCount; i += transformedSegmentSize * 2) {
+			for (int i = 0; i < segmentCount; i += sampleSize * 2) {
 				// conlvolve only parts of the input and output buffers
-				convolve(&target[i], impulse, transformedSegmentSize, queue, ctx);
+				convolve(&target[i], impulse, sampleSize, queue, ctx);
 			}
 
       printf("end transform");
@@ -323,14 +303,14 @@ namespace gpuconv {
 			return max;
 		}
 
-		void printComplexArray(float *target, uint32_t size) {
+		void printArray(float *target, uint32_t size) {
 			printf("\n#####################################\n\n\n\n\n\n");
 			printf("Data (skipping zeros):\n");
 			printf("\n");
 
 			for (int i = 0; i < size*2; i+=2) {
 				if (target[i] != 0.0f || target[i + 1] != 0.0f)
-					printf("  %3d  %12f  %12f\n", i, target[i], target[i + 1]);
+					printf("  %3d  %12f  %12f\n", i/2, target[i], target[i + 1]);
 			}
 		}
 
