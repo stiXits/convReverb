@@ -154,14 +154,14 @@ namespace gpuconv {
       padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignalR);
       padImpulseSignal(impulseL, impulseSignalL, impulseFrames);
       padImpulseSignal(impulseL, impulseSignalR, impulseFrames);
-      printArray(paddedTargetSignalL, transformedSignalSize * 2);
-      printArray(impulseSignalL, transformedSignalSize*2);
+//      printArray(paddedTargetSignalL, transformedSignalSize * 2);
+//      printArray(impulseSignalL, transformedSignalSize*2);
 
-      fft(impulseSignalL, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
-      fft(impulseSignalR, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
-
-      transform(paddedTargetSignalL, impulseSignalL, transformedSegmentSize, segmentCount, queue, ctx);
-      transform(paddedTargetSignalR, impulseSignalR, transformedSegmentSize, segmentCount, queue, ctx);
+//      fft(impulseSignalL, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
+//      fft(impulseSignalR, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
+//
+//      transform(paddedTargetSignalL, impulseSignalL, transformedSegmentSize, segmentCount, queue, ctx);
+//      transform(paddedTargetSignalR, impulseSignalR, transformedSegmentSize, segmentCount, queue, ctx);
 //
 //      compareVectors(paddedTargetSignalL, paddedTargetSignalR, transformedSegmentSize*2);
 
@@ -171,7 +171,7 @@ namespace gpuconv {
 
 			maxo[0] = maximum(maxo[0], mergeConvolvedSignal(paddedTargetSignalL, mergedSignalL, segmentSize, segmentCount));
 			maxo[1] = maximum(maxo[1], mergeConvolvedSignal(paddedTargetSignalR, mergedSignalR, segmentSize, segmentCount));
-
+//
 //      for (int j = 0; j < transformedSignalSize * 2; j += 2) {
 //        maxo[0] = maximum(maxo[0], paddedTargetSignalL[j]);
 //        maxo[1] = maximum(maxo[1], paddedTargetSignalR[j]);
@@ -180,8 +180,10 @@ namespace gpuconv {
 			float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
 
 			for (int i = 0; i < transformedSignalSize; i++) {
-				outputL[i] = ((paddedTargetSignalL[i * 2]) / (maxot));
-				outputR[i] = ((paddedTargetSignalR[i * 2]) / (maxot));
+        outputL[i] = ((mergedSignalL[i * 2]) / (maxot));
+        outputR[i] = ((mergedSignalR[i * 2]) / (maxot));
+//				outputL[i] = ((paddedTargetSignalL[i * 2]) / (maxot));
+//				outputR[i] = ((paddedTargetSignalR[i * 2]) / (maxot));
 //        outputL[i] = ((paddedTargetSignalL[i * 2]));
 //				outputR[i] = ((paddedTargetSignalR[i * 2]));
 			}
@@ -264,16 +266,18 @@ namespace gpuconv {
 
 		float mergeConvolvedSignal(float *longInputBuffer, float *shortOutpuBuffer,
 															 uint32_t sampleSize, uint32_t sampleCount) {
+
+      printArray(longInputBuffer, sampleSize * 4 * sampleCount);
 			float max = 0;
-			uint32_t stride = sampleSize * 2 - 1;
+			uint32_t stride = sampleSize * 4;
 			// start with second sample, the first one has no signal tail to merge with
 			for (int i = 0; i <= sampleCount; ++i) {
 				uint32_t readHeadPosition = stride * i;
 				// tail has length samplesize - 1 so the resulting + 1
-				uint32_t readTailPosition = readHeadPosition - sampleSize + 1;
-				uint32_t writePosition = sampleSize * i;
+				uint32_t readTailPosition = readHeadPosition - 2 * sampleSize;
+				uint32_t writePosition = 2 * sampleSize * i;
 
-				for (int k = 0; k < (sampleSize - 1) * 2; k += 1) {
+				for (int k = 0; k < sampleSize * 2; k += 2) {
 					if (i == 0) {
 						// position is in an area where no tail exists, yet. Speaking the very first element:
 						shortOutpuBuffer[writePosition + k] = longInputBuffer[readHeadPosition + k];
@@ -288,9 +292,9 @@ namespace gpuconv {
         } else {
           // segment having a head and a tail to summ up
           shortOutpuBuffer[writePosition + k] =
-                  longInputBuffer[readHeadPosition] + longInputBuffer[readTailPosition];
+                  longInputBuffer[readHeadPosition + k] + longInputBuffer[readTailPosition + k];
           shortOutpuBuffer[writePosition + k + 1] =
-                  longInputBuffer[readHeadPosition + 1] + longInputBuffer[readTailPosition + 1];
+                  longInputBuffer[readHeadPosition + k + 1] + longInputBuffer[readTailPosition + k + 1];
           max = maximum(max, shortOutpuBuffer[writePosition + k]);
         }
 				}
@@ -314,9 +318,9 @@ namespace gpuconv {
 
 			for (int i = 0; i < size; i++) {
         bool condition = (abs(target[i]) > 0.01);
-				if(condition) {
+//				if(condition) {
           printf("  %3d  %12f \n", i, target[i]);
-        }
+//        }
 			}
 		}
 

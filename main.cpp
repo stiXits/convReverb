@@ -44,7 +44,7 @@ static SndfileHandle openTargetSound(const char * fname) {
 }
 
 int main(int argc, char const *argv[]) {
-	SndfileHandle targetSound = openTargetSound("resources/basic_kick_2X.wav");
+	SndfileHandle targetSound = openTargetSound("resources/brazz_2X.wav");
 	SndfileHandle impulseResponse = openImpulseResponse("resources/HallA_X.wav");
 	SndfileHandle outputSound = create_file("resources/output.wav", SF_FORMAT_WAV | SF_FORMAT_PCM_16);
 
@@ -73,7 +73,7 @@ int main(int argc, char const *argv[]) {
 	impulseResponse.readf(impulseSignal, impulseResponseChannelCount * impulseResponseChannelCount);
     
     
-	infile1 = sf_open ("resources/basic_kick_2X.wav", SFM_READ, &sfinfo1);
+	infile1 = sf_open ("resources/brazz_2X.wav", SFM_READ, &sfinfo1);
 	if (infile1 == NULL)
 	{   
 		printf ("Unable to open file 1.\n");
@@ -148,7 +148,8 @@ int main(int argc, char const *argv[]) {
 	float* outputsx=(float*)malloc(sizeof(float) * (tansformedSignalSize));
 	float* outputdx=(float*)malloc(sizeof(float) * (tansformedSignalSize));
 
-	outputSize = gpuconv::oAReverb(targetSignal, 65536*2, filtersx, filterdx, 4096*2, outputsx, outputdx);
+//	outputSize = gpuconv::oAReverb(targetSignal, 65536*2, filtersx, filterdx, 4096*2, outputsx, outputdx);
+  outputSize = gpuconv::oAReverb(targetSignal, 512, filtersx, filterdx, 128, outputsx, outputdx);
 //  outputSize = gpuconv::oAReverb(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount,
 //                                 outputsx, outputdx);
 //	outputSize = CPUconv(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx,0);
