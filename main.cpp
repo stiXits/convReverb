@@ -148,10 +148,10 @@ int main(int argc, char const *argv[]) {
 	float* outputsx=(float*)malloc(sizeof(float) * (tansformedSignalSize));
 	float* outputdx=(float*)malloc(sizeof(float) * (tansformedSignalSize));
 
-	outputSize = gpuconv::oAReverb(targetSignal, 262144, filtersx, filterdx, 262144,outputsx, outputdx);
+	outputSize = gpuconv::oAReverb(targetSignal, 131072, filtersx, filterdx, 131072,outputsx, outputdx);
 //  outputSize = gpuconv::oAReverb(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount,
 //                                 outputsx, outputdx);
-	//outputSize = CPUconv(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx,0);
+//	outputSize = CPUconv(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx,0);
 
 	uint32_t outputLength = outputSize * 2  + 1;
 	printf("outputSize: \t\t%d\n", outputSize);

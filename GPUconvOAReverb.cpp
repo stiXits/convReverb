@@ -154,7 +154,7 @@ namespace gpuconv {
 			padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignalL);
       padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignalR);
       padImpulseSignal(impulseL, impulseSignalL, impulseFrames);
-      padImpulseSignal(impulseR, impulseSignalR, impulseFrames);
+      padImpulseSignal(impulseL, impulseSignalR, impulseFrames);
 
       fft(impulseSignalL, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
       fft(impulseSignalR, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
@@ -162,7 +162,7 @@ namespace gpuconv {
       transform(paddedTargetSignalL, impulseSignalL, transformedSegmentSize, segmentCount, queue, ctx);
       transform(paddedTargetSignalR, impulseSignalR, transformedSegmentSize, segmentCount, queue, ctx);
 
-      printArray(paddedTargetSignalL, transformedSignalSize);
+      compareVectors(paddedTargetSignalL, paddedTargetSignalR, transformedSegmentSize*2);
 
 			float maxo[2];
 			maxo[0] = 0.0f;
@@ -178,10 +178,12 @@ namespace gpuconv {
 
 			float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
 
-			for (int i = 0; i < (targetFrames + impulseFrames - 1) * 2; i += 2) {
-				outputL[i] = (float) ((paddedTargetSignalL[i]) / (maxot));
-				outputR[i] = (float) ((paddedTargetSignalR[i]) / (maxot));
+			for (int i = 0; i < (targetFrames + impulseFrames - 1); i += 2) {
+				outputL[i] = ((paddedTargetSignalL[i]) / (maxot));
+				outputR[i] = ((paddedTargetSignalR[i]) / (maxot));
 			}
+
+      compareVectors(outputL, outputR, (targetFrames + impulseFrames - 1) * 2);
 
       tearDown();
 
@@ -195,7 +197,7 @@ namespace gpuconv {
 											 cl_command_queue queue,
 											 cl_context) {
 
-      printf("begin transform");
+      printf("begin transform\n");
 			cl_int err = 0;
 
       printf("create buffer for target signal: %d\n", err);
@@ -205,7 +207,7 @@ namespace gpuconv {
 				convolve(&target[i], impulse, sampleSize, queue, ctx);
 			}
 
-      printf("end transform");
+      printf("end transform\n");
 		}
 
 		uint32_t convolve(float *target,
@@ -309,15 +311,17 @@ namespace gpuconv {
 			printf("\n");
 
 			for (int i = 0; i < size*2; i+=2) {
-				if (target[i] != 0.0f || target[i + 1] != 0.0f)
-					printf("  %3d  %12f  %12f\n", i/2, target[i], target[i + 1]);
+        bool condition = (abs(target[i]) > 0.1 || abs(target[i + 1]) > 0.1);
+				if(condition) {
+          printf("  %3d  %12f  %12f\n", i / 2, target[i], target[i + 1]);
+        }
 			}
 		}
 
-		void compareVectors(std::vector<fftw_complex> vec0, std::vector<fftw_complex> vec1, uint32_t size) {
+		void compareVectors(float *vec0, float *vec1, uint32_t size) {
+      printf("Differing vectors:\n");
 			for (int i = 0; i < size; ++i) {
 				if (vec0[0] != vec1[0] || vec0[1] != vec1[1]) {
-					printf("Differing vectors:\n");
 					printf("%12f  %12f\n", i, vec0[0], vec1[1]);
 					printf("%12f  %12f\n", i, vec0[0], vec1[1]);
 				}

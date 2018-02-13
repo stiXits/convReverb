@@ -41,4 +41,5 @@ namespace gpuconv {
     void printArray(float *target, uint32_t size);
 
     inline float maximum(float maxo, float value);
+    void compareVectors(float *vec0, float *vec1, uint32_t size);
 }
