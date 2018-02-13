@@ -12,7 +12,7 @@
 namespace gpuconv {
 
     void setUpCL(uint32_t bufferSize);
-    void fft(float *buffer, cl_mem bufferHandle, uint32_t bufferSize, clfftDirection direction, cl_command_queue queue, cl_context ctx);
+    void fft(float *buffer, uint32_t bufferSize, clfftDirection direction, cl_command_queue queue, cl_context ctx);
 
     uint32_t
     oAReverb(float *target, uint32_t targetFrames, float *impulsesx, float *impulsedx, uint32_t impulseFrames,
@@ -24,16 +24,13 @@ namespace gpuconv {
 
     uint32_t transform(float *target,
                        float *impulse,
-                       cl_mem impulseBuffer,
                        uint32_t sampleSize,
                        uint32_t segmentCount,
                        cl_command_queue queue,
                        cl_context);
 
     uint32_t convolve(float *targetSignal,
-                      cl_mem targetBuffer,
                       float *impulseSignal,
-                      cl_mem impulseBuffer,
                       uint32_t sampleSize,
                       cl_command_queue queue,
                       cl_context);
