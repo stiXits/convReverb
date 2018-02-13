@@ -38,7 +38,7 @@ namespace gpuconv {
     float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutpuBuffer,
                                uint32_t sampleSize, uint32_t sampleCount);
 
-    void printComplexArray(fftw_complex *target, uint32_t size);
+    void printComplexArray(float *target, uint32_t size);
 
     inline float maximum(float maxo, float value);
 }

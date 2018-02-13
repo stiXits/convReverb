@@ -95,6 +95,8 @@ namespace gpuconv {
       cl_int err;
 
       cl_mem bufferHandle = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR , bufferSize * 2 * sizeof(float), NULL, &err );
+      err = clEnqueueWriteBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), buffer, 0, NULL, NULL );
+      printf("enque write buffer: %d", err);
 
       /* Create a default plan for a complex FFT. */
       err = clfftCreateDefaultPlan(&planHandle, ctx, dim, clLengths);
@@ -152,7 +154,6 @@ namespace gpuconv {
 		oAReverb(float *target, uint32_t targetFrames, float *impulseL, float *impulseR, uint32_t impulseFrames,
 										float *outputL, float *outputR) {
 
-			fftw_plan impulseL_plan_forward, impulseR_plan_forward;
 			uint32_t segmentCount = targetFrames / impulseFrames;
 			uint32_t segmentSize = impulseFrames;
 			uint32_t transformedSegmentSize = 2 * segmentSize;
@@ -180,12 +181,19 @@ namespace gpuconv {
       transform(paddedTargetSignalL, impulseSignalL, transformedSegmentSize, segmentCount, queue, ctx);
       transform(paddedTargetSignalR, impulseSignalR, transformedSegmentSize, segmentCount, queue, ctx);
 
+      printComplexArray(paddedTargetSignalL, transformedSignalSize);
+
 			float maxo[2];
 			maxo[0] = 0.0f;
 			maxo[1] = 0.0f;
 
 //			maxo[0] = maximum(maxo[0], mergeConvolvedSignal(paddedTargetSignalL, mergedSignalL, segmentSize, segmentCount));
 //			maxo[1] = maximum(maxo[1], mergeConvolvedSignal(paddedTargetSignalR, mergedSignalR, segmentSize, segmentCount));
+
+      for (int j = 0; j < transformedSegmentSize * 2; j += 2) {
+        maxo[0] = maximum(maxo[0], paddedTargetSignalL[j]);
+        maxo[1] = maximum(maxo[1], paddedTargetSignalR[j]);
+      }
 
 			float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
 
@@ -315,14 +323,14 @@ namespace gpuconv {
 			return max;
 		}
 
-		void printComplexArray(fftw_complex *target, uint32_t size) {
+		void printComplexArray(float *target, uint32_t size) {
 			printf("\n#####################################\n\n\n\n\n\n");
 			printf("Data (skipping zeros):\n");
 			printf("\n");
 
-			for (int i = 0; i < size; i++) {
-				if (target[i][0] != 0.0f || target[i][1] != 0.0f)
-					printf("  %3d  %12f  %12f\n", i, target[i][0], target[i][1]);
+			for (int i = 0; i < size*2; i+=2) {
+				if (target[i] != 0.0f || target[i + 1] != 0.0f)
+					printf("  %3d  %12f  %12f\n", i, target[i], target[i + 1]);
 			}
 		}
 
