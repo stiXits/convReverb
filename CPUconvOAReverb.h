@@ -11,16 +11,17 @@
 namespace cpuconv {
 
     uint32_t
-    CPUconvOAReverb(float *target, uint32_t targetFrames, float *impulsesx, float *impulsedx, uint32_t impulseFrames,
-                    float *outputsx, float *outputdx);
+    oAReverb(float *target, uint32_t targetFrames, float *impulsesx, float *impulsedx, uint32_t impulseFrames,
+             float *outputsx, float *outputdx);
 
-    uint32_t padTargetSignal(float *target, uint32_t segmentCount, uint32_t segmentSize,
+    void padTargetSignal(float *target, uint32_t segmentCount, uint32_t segmentSize,
                              std::vector<fftw_complex> &destinationBuffer);
+    void padImpulseSignal(float *impulse, std::vector<fftw_complex> &impulseBuffer, uint32_t  segmentSize);
 
-    uint32_t convolve(fftw_complex *targetSignal,
-                      fftw_complex *impulseSignal,
-                      fftw_complex *intermediateSignal,
-                      fftw_complex *transformedSignal,
+    uint32_t convolve(std::vector<fftw_complex>::iterator targetSignal,
+                      std::vector<fftw_complex>::iterator impulseSignal,
+                      std::vector<fftw_complex>::iterator intermediateSignal,
+                      std::vector<fftw_complex>::iterator transformedSignal,
                       uint32_t sampleSize);
 
     float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutpuBuffer,

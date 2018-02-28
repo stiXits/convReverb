@@ -147,8 +147,8 @@ namespace gpuconv {
       fft(impulseSignalL, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
       fft(impulseSignalR, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
 
-      transform(paddedTargetSignalL, impulseSignalL, transformedSegmentSize, segmentCount, queue, ctx);
-      transform(paddedTargetSignalR, impulseSignalR, transformedSegmentSize, segmentCount, queue, ctx);
+//      transform(paddedTargetSignalL, impulseSignalL, transformedSegmentSize, segmentCount, queue, ctx);
+//      transform(paddedTargetSignalR, impulseSignalR, transformedSegmentSize, segmentCount, queue, ctx);
 
 			float maxo[2];
 			maxo[0] = 0.0f;
@@ -156,7 +156,7 @@ namespace gpuconv {
 
 			maxo[0] = maximum(maxo[0], mergeConvolvedSignal(paddedTargetSignalL, mergedSignalL, segmentSize, segmentCount));
 			maxo[1] = maximum(maxo[1], mergeConvolvedSignal(paddedTargetSignalR, mergedSignalR, segmentSize, segmentCount));
-//
+
 //      for (int j = 0; j < transformedSignalSize * 2; j += 2) {
 //        maxo[0] = maximum(maxo[0], paddedTargetSignalL[j]);
 //        maxo[1] = maximum(maxo[1], paddedTargetSignalR[j]);
@@ -205,7 +205,6 @@ namespace gpuconv {
 
 			// convolve target and signal
 			for (int i = 0; i < sampleSize*2; i += 2) {
-
         target[i]     = ((impulse[i] * target[i]) - (impulse[i + 1] * target[i + 1]));
         target[i + 1] = ((impulse[i] * target[i + 1]) + (impulse[i + 1] * target[i]));
 			}
@@ -232,7 +231,6 @@ namespace gpuconv {
 //          printf("%d = %f\n", writeOffset + 1, 0.0f);
         }
 
-				// pad the buffer with zeros til it reaches a size of samplesize * 2 - 1
 				for (int k = 0; k < segmentSize*2; k += 2) {
 					int writeOffset = segmentSize * i * 4 + 2 * segmentSize +  k;
 					destinationBuffer[writeOffset] = 0.0f;
@@ -264,19 +262,19 @@ namespace gpuconv {
 						shortOutpuBuffer[writePosition + k + 1] = longInputBuffer[readHeadPosition + k + 1];
 						max = maximum(max, shortOutpuBuffer[writePosition + k]);
 					}
-        else if (i == sampleCount) {
-          // segment add the last tail to output
-          shortOutpuBuffer[writePosition + k] = longInputBuffer[readTailPosition + k];
-          shortOutpuBuffer[writePosition + k + 1] = longInputBuffer[readTailPosition + k + 1];
-          max = maximum(max, shortOutpuBuffer[writePosition + k]);
-        } else {
-          // segment having a head and a tail to summ up
-          shortOutpuBuffer[writePosition + k] =
-                  longInputBuffer[readHeadPosition + k] + longInputBuffer[readTailPosition + k];
-          shortOutpuBuffer[writePosition + k + 1] =
-                  longInputBuffer[readHeadPosition + k + 1] + longInputBuffer[readTailPosition + k + 1];
-          max = maximum(max, shortOutpuBuffer[writePosition + k]);
-        }
+          else if (i == sampleCount) {
+            // segment add the last tail to output
+            shortOutpuBuffer[writePosition + k] = longInputBuffer[readTailPosition + k];
+            shortOutpuBuffer[writePosition + k + 1] = longInputBuffer[readTailPosition + k + 1];
+            max = maximum(max, shortOutpuBuffer[writePosition + k]);
+          } else {
+            // segment having a head and a tail to summ up
+            shortOutpuBuffer[writePosition + k] =
+                    longInputBuffer[readHeadPosition + k] + longInputBuffer[readTailPosition + k];
+            shortOutpuBuffer[writePosition + k + 1] =
+                    longInputBuffer[readHeadPosition + k + 1] + longInputBuffer[readTailPosition + k + 1];
+            max = maximum(max, shortOutpuBuffer[writePosition + k]);
+          }
 				}
 			}
 
