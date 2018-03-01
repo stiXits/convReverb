@@ -50,8 +50,7 @@ namespace cpuconv {
         impulseSignalDx[i][1] = 0.0f;
       }
 
-      target_plan_forward = fftw_plan_dft_1d(resultSignalSize, targetSignal, targetSignalFt, FFTW_FORWARD,
-                                             FFTW_ESTIMATE);
+      target_plan_forward = fftw_plan_dft_1d(resultSignalSize, targetSignal, targetSignalFt, FFTW_FORWARD, FFTW_ESTIMATE);
       fftw_execute(target_plan_forward);
 
       impulseSx_plan_forward = fftw_plan_dft_1d(resultSignalSize, impulseSignalSx, impulseSignalSxFt, FFTW_FORWARD,
@@ -74,11 +73,10 @@ namespace cpuconv {
       }
 
       // backward fourrier transform on transformed signal
-      transformedSx_plan_backward = fftw_plan_dft_1d(resultSignalSize, transformedSignalSx, targetSignalSxIft,
-                                                     FFTW_BACKWARD, FFTW_ESTIMATE);
+      transformedSx_plan_backward = fftw_plan_dft_1d(resultSignalSize, transformedSignalSx, targetSignalSxIft, FFTW_BACKWARD, FFTW_ESTIMATE);
       fftw_execute(transformedSx_plan_backward);
-      transformedDx_plan_backward = fftw_plan_dft_1d(resultSignalSize, transformedSignalDx, targetSignalDxIft,
-                                                     FFTW_BACKWARD, FFTW_ESTIMATE);
+
+      transformedDx_plan_backward = fftw_plan_dft_1d(resultSignalSize, transformedSignalDx, targetSignalDxIft, FFTW_BACKWARD, FFTW_ESTIMATE);
       fftw_execute(transformedDx_plan_backward);
 
       float maxo[2];

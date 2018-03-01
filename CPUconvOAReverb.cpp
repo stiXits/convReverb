@@ -53,10 +53,8 @@ namespace cpuconv {
 
       padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignal);
 
-//      printComplexArray(paddedTargetSignal.data(), transformedSegmentSize);
-
       padImpulseSignal(impulseL, impulseSignalL, segmentSize);
-      padImpulseSignal(impulseL, impulseSignalL, segmentSize);
+      padImpulseSignal(impulseR, impulseSignalR, segmentSize);
 
       // apply fft to impulse l and r
       impulseL_plan_forward = fftw_plan_dft_1d(transformedSegmentSize, impulseSignalL.data(), impulseSignalLFT.data(),
@@ -80,32 +78,32 @@ namespace cpuconv {
       maxo[0] = 0.0f;
       maxo[1] = 0.0f;
 
-      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(convolvedSignalL, mergedSignalL, segmentSize, segmentCount));
-      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(convolvedSignalR, mergedSignalR, segmentSize, segmentCount));
+//      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(convolvedSignalL, mergedSignalL, segmentSize, segmentCount));
+//      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(convolvedSignalR, mergedSignalR, segmentSize, segmentCount));
+//
+//      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(impulseSignalL, mergedSignalL, segmentSize, segmentCount));
+//      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(impulseSignalR, mergedSignalR, segmentSize, segmentCount));
 
-//      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(paddedTargetSignal, mergedSignalL, segmentSize, segmentCount));
-//      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(paddedTargetSignal, mergedSignalR, segmentSize, segmentCount));
-
-//      for (int j = 0; j < transformedSignalSize; j++) {
-//        maxo[0] = maximum(maxo[0], convolvedSignalL[j][0]);
-//        maxo[1] = maximum(maxo[1], convolvedSignalR[j][0]);
-//      }
+      for (int j = 0; j < transformedSignalSize; j++) {
+        maxo[0] = maximum(maxo[0], convolvedSignalL[j][0]);
+        maxo[1] = maximum(maxo[1], convolvedSignalR[j][0]);
+      }
 
       float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
 
-//      for (int i = 0; i < transformedSignalSize; i++) {
-//        outputL[i] = (float) ((convolvedSignalL[i][0]) / (maxot));
-//        outputR[i] = (float) ((convolvedSignalR[i][0]) / (maxot));
-//
-//        if(outputL[i] != 0.f) {
-//          printf("%d: %f\n", i, outputL[i]);
-//        }
-//      }
+      for (int i = 0; i < transformedSignalSize; i++) {
+        outputL[i] = (float) ((convolvedSignalL[i][0]) / (maxot));
+        outputR[i] = (float) ((convolvedSignalR[i][0]) / (maxot));
 
-      for (int i = 0; i < targetFrames + impulseFrames - 1; i++) {
-        outputL[i] = (float) ((mergedSignalL[i][0]) / (maxot));
-        outputR[i] = (float) ((mergedSignalR[i][0]) / (maxot));
+        if(outputL[i] != 0.f) {
+          printf("%d: %f\n", i, outputL[i]);
+        }
       }
+
+//      for (int i = 0; i < targetFrames + impulseFrames - 1; i++) {
+//        outputL[i] = (float) ((mergedSignalL[i][0]) / (maxot));
+//        outputR[i] = (float) ((mergedSignalR[i][0]) / (maxot));
+//      }
 
       return transformedSignalSize;
     }
@@ -116,21 +114,30 @@ namespace cpuconv {
                       std::vector<fftw_complex>::iterator transformedSignal,
                       uint32_t sampleSize) {
 
+      std::vector<fftw_complex >::iterator cachedIntermediateSignalStart = intermediateSignal;
       // transform signal to frequency domaine
       fftw_plan target_plan_forward = fftw_plan_dft_1d(sampleSize, &*targetSignal, &*intermediateSignal, FFTW_FORWARD,
                                                        FFTW_ESTIMATE);
       fftw_execute(target_plan_forward);
 
       // convolve target and signal
+//      for (int i = 0; i < sampleSize; i++) {
+//        intermediateSignal[i][0] = intermediateSignal[i][0];
+//        intermediateSignal[i][1] = intermediateSignal[i][1];
+//      }
+
       for (int i = 0; i < sampleSize; i++) {
-        intermediateSignal[i][0] = ((impulseSignal[i][0] * intermediateSignal[i][0]) -
-                                    (impulseSignal[i][1] * intermediateSignal[i][1]));
-        intermediateSignal[i][1] = ((impulseSignal[i][0] * intermediateSignal[i][1]) +
-                                    (impulseSignal[i][1] * intermediateSignal[i][0]));
+        (*intermediateSignal)[0] = ((*impulseSignal)[0] * (*intermediateSignal)[1] +
+                                   (*impulseSignal)[1] * (*intermediateSignal)[0]);
+        (*intermediateSignal)[1] = ((*impulseSignal)[0] * (*intermediateSignal)[1] +
+                                   (*impulseSignal)[1] * (*intermediateSignal)[0]);
+
+        intermediateSignal++;
+        impulseSignal++;
       }
 
       // transform result back to time domaine
-      fftw_plan target_plan_backward = fftw_plan_dft_1d(sampleSize, &*intermediateSignal, &*transformedSignal,
+      fftw_plan target_plan_backward = fftw_plan_dft_1d(sampleSize, &*cachedIntermediateSignalStart, &*transformedSignal,
                                                         FFTW_BACKWARD, FFTW_ESTIMATE);
       fftw_execute(target_plan_backward);
 
