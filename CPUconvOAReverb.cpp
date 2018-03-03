@@ -101,7 +101,7 @@ namespace cpuconv {
         outputR[i] = (float) ((mergedSignalR[i][0]) / (maxot));
       }
 
-      return transformedSignalSize;
+      return segmentSize * (segmentCount + 1);
     }
 
     uint32_t convolve(std::vector<fftw_complex>::iterator targetSignal,
