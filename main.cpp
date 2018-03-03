@@ -46,7 +46,7 @@ static SndfileHandle openTargetSound(const char * fname) {
 }
 
 int main(int argc, char const *argv[]) {
-	SndfileHandle targetSound = openTargetSound("resources/basic_kick_X.wav");
+	SndfileHandle targetSound = openTargetSound("resources/basic_kick.wav");
 	SndfileHandle impulseResponse = openImpulseResponse("resources/HallA_X.wav");
 	SndfileHandle outputSound = create_file("resources/output.wav", SF_FORMAT_WAV | SF_FORMAT_PCM_16);
 
@@ -75,7 +75,7 @@ int main(int argc, char const *argv[]) {
 	impulseResponse.readf(impulseSignal, impulseResponseChannelCount * impulseResponseChannelCount);
     
     
-	infile1 = sf_open ("resources/basic_kick_X.wav", SFM_READ, &sfinfo1);
+	infile1 = sf_open ("resources/basic_kick.wav", SFM_READ, &sfinfo1);
 	if (infile1 == NULL)
 	{   
 		printf ("Unable to open file 1.\n");
@@ -143,20 +143,23 @@ int main(int argc, char const *argv[]) {
 	}
 
 	// create output array for both channels
-	uint32_t tansformedSignalSize = targetSoundFrameCount+impulseResponseFrameCount-1;
-	float* outputsx=(float*)malloc(sizeof(float) * (tansformedSignalSize));
-	float* outputdx=(float*)malloc(sizeof(float) * (tansformedSignalSize));
+  uint32_t segmentCount = targetSoundFrameCount / impulseResponseFrameCount;
+  uint32_t segmentSize = impulseResponseFrameCount;
+  uint32_t transformedSegmentSize = 2 * segmentSize - 1;
+  uint32_t transformedSignalSize = (transformedSegmentSize) * segmentCount;
+	float* outputsx=(float*)malloc(sizeof(float) * (transformedSignalSize));
+	float* outputdx=(float*)malloc(sizeof(float) * (transformedSignalSize));
 
 //	outputSize = cpuconv::oAReverb(targetSignal, 65536*2, filtersx, filterdx, 4096*2, outputsx, outputdx);
 //  outputSize = cpuconv::oAReverb(targetSignal, 512, filtersx, filterdx, 128 , outputsx, outputdx);
-  outputSize = cpuconv::simpleReverb(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx);
+  outputSize = cpuconv::oAReverb(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx);
 //	outputSize = CPUconv(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx,0);
 
 	uint32_t outputLength = outputSize * 2  + 1;
 	printf("outputSize: \t\t%d\n", outputSize);
 
-	printf("outpusx: \t\t%d\n", tansformedSignalSize);
-	printf("outpusx: \t\t%d\n", tansformedSignalSize);
+	printf("outpusx: \t\t%d\n", transformedSignalSize);
+	printf("outpusx: \t\t%d\n", transformedSignalSize);
 	printf("outputSoundSignal: \t%d\n", outputLength);
 	printf("returned size: \t\t%d\n", outputSize);
 

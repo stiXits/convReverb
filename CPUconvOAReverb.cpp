@@ -30,7 +30,7 @@ namespace cpuconv {
       fftw_plan impulseL_plan_forward, impulseR_plan_forward;
       uint32_t segmentCount = targetFrames / impulseFrames;
       uint32_t segmentSize = impulseFrames;
-      uint32_t transformedSegmentSize = targetFrames + impulseFrames - 1;
+      uint32_t transformedSegmentSize = 2 * segmentSize - 1;
       uint32_t transformedSignalSize = (transformedSegmentSize) * segmentCount;
 
       impulseSignalL = std::vector<fftw_complex>(transformedSegmentSize);
@@ -85,15 +85,15 @@ namespace cpuconv {
 //      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(impulseSignalR, mergedSignalR, segmentSize, segmentCount));
 
       for (int j = 0; j < transformedSignalSize; j++) {
-        maxo[0] = maximum(maxo[0], convolvedSignalL[j][0]);
-        maxo[1] = maximum(maxo[1], convolvedSignalR[j][0]);
+        maxo[0] = maximum(maxo[0], paddedTargetSignal[j][0]);
+        maxo[1] = maximum(maxo[1], paddedTargetSignal[j][0]);
       }
 
       float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
 
       for (int i = 0; i < transformedSignalSize; i++) {
-        outputL[i] = (float) ((convolvedSignalL[i][0]) / (maxot));
-        outputR[i] = (float) ((convolvedSignalR[i][0]) / (maxot));
+        outputL[i] = (float) ((paddedTargetSignal[i][0]) / (maxot));
+        outputR[i] = (float) ((paddedTargetSignal[i][0]) / (maxot));
       }
 
 //      for (int i = 0; i < targetFrames + impulseFrames - 1; i++) {
@@ -124,7 +124,7 @@ namespace cpuconv {
 
       for (int i = 0; i < sampleSize; i++) {
         float cacheReal = (*intermediateSignal)[0];
-        float cacheImaginary =  (*intermediateSignal)[0];
+        float cacheImaginary =  (*intermediateSignal)[1];
         (*intermediateSignal)[0] = ((*impulseSignal)[0] * cacheReal - (*impulseSignal)[1] * cacheImaginary);
         (*intermediateSignal)[1] = ((*impulseSignal)[0] * cacheImaginary + (*impulseSignal)[1] * cacheReal);
 
@@ -170,7 +170,7 @@ namespace cpuconv {
         // pad the buffer with zeros til it reaches a size of samplesize * 2 - 1
         for (int k = 0; k < transformedSegmentSize - segmentSize; ++k) {
           int writeOffset = segmentSize * i * 2 + segmentSize +  k;
-          destinationBuffer[writeOffset][0] = 0.0f;
+          destinationBuffer[writeOffset][0] = 1.0f;
           destinationBuffer[writeOffset][1] = 0.0f;
         }
       }
