@@ -78,28 +78,28 @@ namespace cpuconv {
       maxo[0] = 0.0f;
       maxo[1] = 0.0f;
 
-//      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(convolvedSignalL, mergedSignalL, segmentSize, segmentCount));
-//      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(convolvedSignalR, mergedSignalR, segmentSize, segmentCount));
-//
+      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(convolvedSignalL, mergedSignalL, segmentSize, segmentCount));
+      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(convolvedSignalR, mergedSignalR, segmentSize, segmentCount));
+
 //      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(impulseSignalL, mergedSignalL, segmentSize, segmentCount));
 //      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(impulseSignalR, mergedSignalR, segmentSize, segmentCount));
 
-      for (int j = 0; j < transformedSignalSize; j++) {
-        maxo[0] = maximum(maxo[0], paddedTargetSignal[j][0]);
-        maxo[1] = maximum(maxo[1], paddedTargetSignal[j][0]);
-      }
+//      for (int j = 0; j < transformedSignalSize; j++) {
+//        maxo[0] = maximum(maxo[0], convolvedSignalL[j][0]);
+//        maxo[1] = maximum(maxo[1], convolvedSignalR[j][0]);
+//      }
 
       float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
 
-      for (int i = 0; i < transformedSignalSize; i++) {
-        outputL[i] = (float) ((paddedTargetSignal[i][0]) / (maxot));
-        outputR[i] = (float) ((paddedTargetSignal[i][0]) / (maxot));
-      }
-
-//      for (int i = 0; i < targetFrames + impulseFrames - 1; i++) {
-//        outputL[i] = (float) ((mergedSignalL[i][0]) / (maxot));
-//        outputR[i] = (float) ((mergedSignalR[i][0]) / (maxot));
+//      for (int i = 0; i < transformedSignalSize; i++) {
+//        outputL[i] = (float) ((convolvedSignalL[i][0]) / (maxot));
+//        outputR[i] = (float) ((convolvedSignalR[i][0]) / (maxot));
 //      }
+
+      for (int i = 0; i < targetFrames + impulseFrames - 1; i++) {
+        outputL[i] = (float) ((mergedSignalL[i][0]) / (maxot));
+        outputR[i] = (float) ((mergedSignalR[i][0]) / (maxot));
+      }
 
       return transformedSignalSize;
     }
@@ -170,13 +170,13 @@ namespace cpuconv {
         // pad the buffer with zeros til it reaches a size of samplesize * 2 - 1
         for (int k = 0; k < transformedSegmentSize - segmentSize; ++k) {
           int writeOffset = segmentSize * i * 2 + segmentSize +  k;
-          destinationBuffer[writeOffset][0] = 1.0f;
+          destinationBuffer[writeOffset][0] = 0.0f;
           destinationBuffer[writeOffset][1] = 0.0f;
         }
       }
     }
 
-    float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutpuBuffer,
+    float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutputBuffer,
                                uint32_t sampleSize, uint32_t sampleCount) {
       float max = 0;
       uint32_t stride = sampleSize * 2;
@@ -187,25 +187,25 @@ namespace cpuconv {
         uint32_t readTailPosition = readHeadPosition - sampleSize;
         uint32_t writePosition = sampleSize * i;
 
-        for (int k = 0; k < sampleSize * 2; k += 2) {
+        for (int k = 0; k < sampleSize; k++) {
           if (i == 0) {
             // position is in an area where no tail exists, yet. Speaking the very first element:
-            shortOutpuBuffer[writePosition + k][0] = longInputBuffer[readHeadPosition + k][0];
-            shortOutpuBuffer[writePosition + k][1] = longInputBuffer[readHeadPosition + k][1];
-            max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
+            shortOutputBuffer[writePosition + k][0] = (float)(longInputBuffer[readHeadPosition + k][0]);
+            shortOutputBuffer[writePosition + k][1] = (float)(longInputBuffer[readHeadPosition + k][1]);
+            max = maximum(max, shortOutputBuffer[writePosition + k][0]);
           }
           else if (i == sampleCount) {
             // segment add the last tail to output
-            shortOutpuBuffer[writePosition + k][0] = longInputBuffer[readTailPosition + k][0];
-            shortOutpuBuffer[writePosition + k][1] = longInputBuffer[readTailPosition + k][1];
-            max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
+            shortOutputBuffer[writePosition + k][0] = (float)(longInputBuffer[readTailPosition + k][0]);
+            shortOutputBuffer[writePosition + k][1] = (float)(longInputBuffer[readTailPosition + k][1]);
+            max = maximum(max, shortOutputBuffer[writePosition + k][0]);
           } else {
             // segment having a head and a tail to summ up
-            shortOutpuBuffer[writePosition + k][0] =
-                    longInputBuffer[readHeadPosition + k][0] + longInputBuffer[readTailPosition + k][0];
-            shortOutpuBuffer[writePosition + k + 1][0] =
-                    longInputBuffer[readHeadPosition + k][1] + longInputBuffer[readTailPosition + k][1];
-            max = maximum(max, shortOutpuBuffer[writePosition + k][0]);
+            shortOutputBuffer[writePosition + k][0] =
+                    (float)(longInputBuffer[readHeadPosition + k][0] + longInputBuffer[readTailPosition + k][0]);
+            shortOutputBuffer[writePosition + k + 1][0] =
+                    (float)(longInputBuffer[readHeadPosition + k][1] + longInputBuffer[readTailPosition + k][1]);
+            max = maximum(max, shortOutputBuffer[writePosition + k][0]);
           }
         }
       }

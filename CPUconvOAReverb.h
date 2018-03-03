@@ -24,7 +24,7 @@ namespace cpuconv {
                       std::vector<fftw_complex>::iterator transformedSignal,
                       uint32_t sampleSize);
 
-    float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutpuBuffer,
+    float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutputBuffer,
                                uint32_t sampleSize, uint32_t sampleCount);
 
     void printComplexArray(fftw_complex *target, uint32_t size);
