@@ -30,7 +30,7 @@ namespace cpuconv {
       fftw_plan impulseL_plan_forward, impulseR_plan_forward;
       uint32_t segmentCount = targetFrames / impulseFrames;
       uint32_t segmentSize = impulseFrames;
-      uint32_t transformedSegmentSize = 2 * segmentSize - 1;
+      uint32_t transformedSegmentSize = targetFrames + impulseFrames - 1;
       uint32_t transformedSignalSize = (transformedSegmentSize) * segmentCount;
 
       impulseSignalL = std::vector<fftw_complex>(transformedSegmentSize);
@@ -51,10 +51,10 @@ namespace cpuconv {
       mergedSignalL = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
       mergedSignalR = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
 
-      padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignal);
+      padTargetSignal(target, segmentCount, segmentSize, transformedSegmentSize, paddedTargetSignal);
 
-      padImpulseSignal(impulseL, impulseSignalL, segmentSize);
-      padImpulseSignal(impulseR, impulseSignalR, segmentSize);
+      padImpulseSignal(impulseL, impulseSignalL, segmentSize, transformedSegmentSize);
+      padImpulseSignal(impulseR, impulseSignalR, segmentSize, transformedSegmentSize);
 
       // apply fft to impulse l and r
       impulseL_plan_forward = fftw_plan_dft_1d(transformedSegmentSize, impulseSignalL.data(), impulseSignalLFT.data(),
@@ -94,10 +94,6 @@ namespace cpuconv {
       for (int i = 0; i < transformedSignalSize; i++) {
         outputL[i] = (float) ((convolvedSignalL[i][0]) / (maxot));
         outputR[i] = (float) ((convolvedSignalR[i][0]) / (maxot));
-
-        if(outputL[i] != 0.f) {
-          printf("%d: %f\n", i, outputL[i]);
-        }
       }
 
 //      for (int i = 0; i < targetFrames + impulseFrames - 1; i++) {
@@ -144,10 +140,8 @@ namespace cpuconv {
       return sampleSize;
     }
 
-    void padImpulseSignal(float *impulse, std::vector<fftw_complex> &impulseBuffer, uint32_t  segmentSize)
+    void padImpulseSignal(float *impulse, std::vector<fftw_complex> &impulseBuffer, uint32_t  segmentSize, uint32_t transformedSegmentSize)
     {
-      uint32_t  transformedSegmentSize = 2 * segmentSize;
-
       // copy impulse sound to complex buffer
       for (int i = 0; i < transformedSegmentSize ; i++) {
         if (i < segmentSize) {
@@ -160,7 +154,7 @@ namespace cpuconv {
       }
     }
 
-    void padTargetSignal(float *target, uint32_t segmentCount, uint32_t segmentSize,
+    void padTargetSignal(float *target, uint32_t segmentCount, uint32_t segmentSize, uint32_t transformedSegmentSize,
                              std::vector<fftw_complex> &destinationBuffer) {
 
       for (int i = 0; i < segmentCount; ++i) {
@@ -174,7 +168,7 @@ namespace cpuconv {
         }
 
         // pad the buffer with zeros til it reaches a size of samplesize * 2 - 1
-        for (int k = 0; k < segmentSize; ++k) {
+        for (int k = 0; k < transformedSegmentSize - segmentSize; ++k) {
           int writeOffset = segmentSize * i * 2 + segmentSize +  k;
           destinationBuffer[writeOffset][0] = 0.0f;
           destinationBuffer[writeOffset][1] = 0.0f;

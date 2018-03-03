@@ -62,14 +62,10 @@ namespace cpuconv {
       fftw_execute(impulseDx_plan_forward);
 
       for (int i = 0; i < resultSignalSize; i++) {
-        transformedSignalSx[i][0] = ((impulseSignalSxFt[i][0] * targetSignalFt[i][1]) +
-                                     (impulseSignalSxFt[i][1] * targetSignalFt[i][0]));
-        transformedSignalSx[i][1] = ((impulseSignalSxFt[i][0] * targetSignalFt[i][1]) +
-                                     (impulseSignalSxFt[i][1] * targetSignalFt[i][0]));
-        transformedSignalDx[i][0] = ((impulseSignalDxFt[i][0] * targetSignalFt[i][0]) -
-                                     (impulseSignalDxFt[i][1] * targetSignalFt[i][1]));
-        transformedSignalDx[i][1] = ((impulseSignalDxFt[i][0] * targetSignalFt[i][1]) +
-                                     (impulseSignalDxFt[i][1] * targetSignalFt[i][0]));
+        transformedSignalSx[i][0] = ((impulseSignalSxFt[i][0] * targetSignalFt[i][0]) - (impulseSignalSxFt[i][1] * targetSignalFt[i][1]));
+        transformedSignalSx[i][1] = ((impulseSignalSxFt[i][0] * targetSignalFt[i][1]) + (impulseSignalSxFt[i][1] * targetSignalFt[i][0]));
+        transformedSignalDx[i][0] = ((impulseSignalDxFt[i][0] * targetSignalFt[i][0]) - (impulseSignalDxFt[i][1] * targetSignalFt[i][1]));
+        transformedSignalDx[i][1] = ((impulseSignalDxFt[i][0] * targetSignalFt[i][1]) + (impulseSignalDxFt[i][1] * targetSignalFt[i][0]));
       }
 
       // backward fourrier transform on transformed signal
@@ -110,6 +106,6 @@ namespace cpuconv {
       delete[] transformedSignalSx;
       delete[] transformedSignalDx;
 
-      return targetFrames;
+      return resultSignalSize;
     }
 }
