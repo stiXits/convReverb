@@ -30,7 +30,7 @@ namespace cpuconv {
       fftw_plan impulseL_plan_forward, impulseR_plan_forward;
       uint32_t segmentCount = targetFrames / impulseFrames;
       uint32_t segmentSize = impulseFrames;
-      uint32_t transformedSegmentSize = 2 * segmentSize;
+      uint32_t transformedSegmentSize = 2 * segmentSize - 1;
       uint32_t transformedSignalSize = (transformedSegmentSize) * segmentCount;
 
       impulseSignalL = std::vector<fftw_complex>(transformedSegmentSize);
@@ -127,10 +127,10 @@ namespace cpuconv {
 //      }
 
       for (int i = 0; i < sampleSize; i++) {
-        (*intermediateSignal)[0] = ((*impulseSignal)[0] * (*intermediateSignal)[1] +
-                                   (*impulseSignal)[1] * (*intermediateSignal)[0]);
-        (*intermediateSignal)[1] = ((*impulseSignal)[0] * (*intermediateSignal)[1] +
-                                   (*impulseSignal)[1] * (*intermediateSignal)[0]);
+        float cacheReal = (*intermediateSignal)[0];
+        float cacheImaginary =  (*intermediateSignal)[0];
+        (*intermediateSignal)[0] = ((*impulseSignal)[0] * cacheReal - (*impulseSignal)[1] * cacheImaginary);
+        (*intermediateSignal)[1] = ((*impulseSignal)[0] * cacheImaginary + (*impulseSignal)[1] * cacheReal);
 
         intermediateSignal++;
         impulseSignal++;
