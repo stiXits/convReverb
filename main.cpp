@@ -54,9 +54,13 @@ int main(int argc, char const *argv[]) {
 	uint32_t impulseResponseFrameCount = (uint32_t) impulseResponse.frames();
 	int impulseResponseChannelCount = impulseResponse.channels();
 
-	printf("target sound sample count %d\n", targetSoundFrameCount);
+  uint32_t roundedBaseTwoTargetFrames = pow(2, floor(log(targetSoundFrameCount)/log(2)));
+  uint32_t roundedBaseTwoImpulseFrames = pow(2, floor(log(impulseResponseFrameCount)/log(2)));
+
+
+	printf("target sound sample count %d, rounded^2: %d\n", targetSoundFrameCount, roundedBaseTwoTargetFrames);
 	printf("target sound channel count %d\n", targetSoundChannelCount);
-	printf("impuls response sample count %d\n", impulseResponseFrameCount);
+	printf("impuls response sample count %d, rounded^2: %d\n", impulseResponseFrameCount, roundedBaseTwoImpulseFrames);
 	printf("impuls response channel count %d\n", impulseResponseChannelCount);
 
 	float* targetSignal = new float[targetSoundFrameCount * targetSoundChannelCount];
@@ -150,7 +154,7 @@ int main(int argc, char const *argv[]) {
 
 //	outputSize = cpuconv::oAReverb(targetSignal, 65536*2, filtersx, filterdx, 4096*2, outputsx, outputdx);
 //  outputSize = cpuconv::oAReverb(targetSignal, 512, filtersx, filterdx, 128 , outputsx, outputdx);
-  outputSize = gpuconv::oAReverb(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx);
+  outputSize = gpuconv::oAReverb(targetSignal, roundedBaseTwoTargetFrames, filtersx, filterdx, roundedBaseTwoImpulseFrames, outputsx, outputdx);
 //	outputSize = CPUconv(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx,1);
 
 	uint32_t outputLength = outputSize * 2  + 1;

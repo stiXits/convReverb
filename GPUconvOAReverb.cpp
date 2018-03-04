@@ -114,8 +114,6 @@ namespace gpuconv {
     uint32_t
     oAReverb(float *target, uint32_t targetFrames, float *impulseL, float *impulseR, uint32_t impulseFrames,
              float *outputL, float *outputR) {
-
-      fftw_plan impulseL_plan_forward, impulseR_plan_forward;
       uint32_t segmentCount = targetFrames / impulseFrames;
       uint32_t segmentSize = impulseFrames;
       uint32_t transformedSegmentSize = 2 * segmentSize - 1;
@@ -150,41 +148,41 @@ namespace gpuconv {
       fft(impulseSignalR.begin(), transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
 
       // fourrier transform of target and impulse signal
-      for (int i = 0; i < transformedSignalSize; i += transformedSegmentSize) {
-
-        // chnlvolve only parts of the input and output buffers
-        convolve(paddedTargetSignal.begin() + i, impulseSignalLFT.begin(), intermediateSignalL.begin() + i, convolvedSignalL.begin() + i,
-                 transformedSegmentSize);
-        convolve(paddedTargetSignal.begin() + i, impulseSignalRFT.begin(), intermediateSignalR.begin() + i, convolvedSignalR.begin() + i,
-                 transformedSegmentSize);
-      }
+//      for (int i = 0; i < transformedSignalSize; i += transformedSegmentSize) {
+//
+//        // chnlvolve only parts of the input and output buffers
+//        convolve(paddedTargetSignal.begin() + i, impulseSignalLFT.begin(), intermediateSignalL.begin() + i, convolvedSignalL.begin() + i,
+//                 transformedSegmentSize);
+//        convolve(paddedTargetSignal.begin() + i, impulseSignalRFT.begin(), intermediateSignalR.begin() + i, convolvedSignalR.begin() + i,
+//                 transformedSegmentSize);
+//      }
 
       float maxo[2];
       maxo[0] = 0.0f;
       maxo[1] = 0.0f;
 
-      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(convolvedSignalL, mergedSignalL, segmentSize, segmentCount));
-      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(convolvedSignalR, mergedSignalR, segmentSize, segmentCount));
+//      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(convolvedSignalL, mergedSignalL, segmentSize, segmentCount));
+//      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(convolvedSignalR, mergedSignalR, segmentSize, segmentCount));
 
 //      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(impulseSignalL, mergedSignalL, segmentSize, segmentCount));
 //      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(impulseSignalR, mergedSignalR, segmentSize, segmentCount));
 
-//      for (int j = 0; j < transformedSignalSize; j++) {
-//        maxo[0] = maximum(maxo[0], convolvedSignalL[j][0]);
-//        maxo[1] = maximum(maxo[1], convolvedSignalR[j][0]);
-//      }
+      for (int j = 0; j < transformedSignalSize; j++) {
+        maxo[0] = maximum(maxo[0], impulseSignalL[j][0]);
+        maxo[1] = maximum(maxo[1], impulseSignalR[j][0]);
+      }
 
       float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
 
-//      for (int i = 0; i < transformedSignalSize; i++) {
-//        outputL[i] = (float) ((convolvedSignalL[i][0]) / (maxot));
-//        outputR[i] = (float) ((convolvedSignalR[i][0]) / (maxot));
-//      }
-
-      for (int i = 0; i < targetFrames + impulseFrames - 1; i++) {
-        outputL[i] = (float) ((mergedSignalL[i][0]) / (maxot));
-        outputR[i] = (float) ((mergedSignalR[i][0]) / (maxot));
+      for (int i = 0; i < transformedSignalSize; i++) {
+        outputL[i] = (float) ((impulseSignalL[i][0]) / (maxot));
+        outputR[i] = (float) ((impulseSignalR[i][0]) / (maxot));
       }
+
+//      for (int i = 0; i < targetFrames + impulseFrames - 1; i++) {
+//        outputL[i] = (float) ((mergedSignalL[i][0]) / (maxot));
+//        outputR[i] = (float) ((mergedSignalR[i][0]) / (maxot));
+//      }
 
       tearDown();
 
