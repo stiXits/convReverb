@@ -99,8 +99,7 @@ namespace cpuconv {
 
       std::vector<fftw_complex >::iterator cachedIntermediateSignalStart = intermediateSignal;
       // transform signal to frequency domaine
-      fftw_plan target_plan_forward = fftw_plan_dft_1d(sampleSize, &*targetSignal, &*intermediateSignal, FFTW_FORWARD,
-                                                       FFTW_ESTIMATE);
+      fftw_plan target_plan_forward = fftw_plan_dft_1d(sampleSize, &*targetSignal, &*intermediateSignal, FFTW_FORWARD, FFTW_ESTIMATE);
       fftw_execute(target_plan_forward);
 
       for (int i = 0; i < sampleSize; i++) {
@@ -114,8 +113,7 @@ namespace cpuconv {
       }
 
       // transform result back to time domaine
-      fftw_plan target_plan_backward = fftw_plan_dft_1d(sampleSize, &*cachedIntermediateSignalStart, &*transformedSignal,
-                                                        FFTW_BACKWARD, FFTW_ESTIMATE);
+      fftw_plan target_plan_backward = fftw_plan_dft_1d(sampleSize, &*cachedIntermediateSignalStart, &*transformedSignal, FFTW_BACKWARD, FFTW_ESTIMATE);
       fftw_execute(target_plan_backward);
 
       return sampleSize;

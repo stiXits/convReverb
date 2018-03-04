@@ -1,16 +1,27 @@
 #include "GPUconvOAReverb.h"
 
 #include <math.h>
+#include <array>
 
 namespace gpuconv {
-// FFT buffers
-		float *paddedTargetSignalL;
-    float *paddedTargetSignalR;
-    float *impulseSignalL;
-    float *impulseSignalR;
 
-		float *mergedSignalL;
-		float *mergedSignalR;
+// FFT buffers
+    std::vector<fftw_complex> impulseSignalL;
+    std::vector<fftw_complex> impulseSignalLFT;
+
+    std::vector<fftw_complex> impulseSignalR;
+    std::vector<fftw_complex> impulseSignalRFT;
+
+    std::vector<fftw_complex> paddedTargetSignal;
+
+    std::vector<fftw_complex> intermediateSignalL;
+    std::vector<fftw_complex> intermediateSignalR;
+
+    std::vector<fftw_complex> convolvedSignalL;
+    std::vector<fftw_complex> convolvedSignalR;
+
+    std::vector<fftw_complex> mergedSignalL;
+    std::vector<fftw_complex> mergedSignalR;
 
     cl_context ctx = 0;
     cl_command_queue queue = 0;
@@ -49,7 +60,7 @@ namespace gpuconv {
       clReleaseContext( ctx );
     }
 
-    void fft(float *buffer, uint32_t bufferSize, clfftDirection direction, cl_command_queue queue, cl_context ctx)
+    void fft(std::vector<fftw_complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction, cl_command_queue queue, cl_context ctx)
     {
       printf("begin fft\n");
 
@@ -61,7 +72,7 @@ namespace gpuconv {
       cl_int err = 0;
 
       cl_mem bufferHandle = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR , bufferSize * 2 * sizeof(float), NULL, &err );
-      err = clEnqueueWriteBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), buffer, 0, NULL, NULL );
+      err = clEnqueueWriteBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), &*buffer, 0, NULL, NULL );
       printf("enque write buffer: %d\n", err);
 
       /* Create a default plan for a complex FFT. */
@@ -88,7 +99,7 @@ namespace gpuconv {
       printf("7: err: %d\n", err);
 
       /* Fetch results of calculations. */
-      err = clEnqueueReadBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), buffer, 0, NULL, NULL );
+      err = clEnqueueReadBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), &*buffer, 0, NULL, NULL );
       printf("8: err: %d\n", err);
 
       err = clfftDestroyPlan( &planHandle );
@@ -100,215 +111,210 @@ namespace gpuconv {
       printf("end fft: %d\n", err);
     }
 
-    void padImpulseSignal(float *impulse, float *impulseBuffer, uint32_t  segmentSize)
-    {
-      uint32_t  transformedSegmentSize = 2 * segmentSize;
+    uint32_t
+    oAReverb(float *target, uint32_t targetFrames, float *impulseL, float *impulseR, uint32_t impulseFrames,
+             float *outputL, float *outputR) {
 
-      // copy impulse sound to complex buffer
-      for (int i = 0; i < transformedSegmentSize*2 ; i += 2) {
-        if (i < segmentSize) {
-          impulseBuffer[i] = impulse[i];
-        } else {
-          impulseBuffer[i] = 0.0f;
-        }
+      fftw_plan impulseL_plan_forward, impulseR_plan_forward;
+      uint32_t segmentCount = targetFrames / impulseFrames;
+      uint32_t segmentSize = impulseFrames;
+      uint32_t transformedSegmentSize = 2 * segmentSize - 1;
+      uint32_t transformedSignalSize = (transformedSegmentSize) * segmentCount;
 
-        impulseBuffer[i + 1] = 0.0f;
-      }
-    }
+      impulseSignalL = std::vector<fftw_complex>(transformedSegmentSize);
+      impulseSignalLFT = std::vector<fftw_complex>(transformedSegmentSize);
 
-		uint32_t
-		oAReverb(float *target, uint32_t targetFrames, float *impulseL, float *impulseR, uint32_t impulseFrames,
-										float *outputL, float *outputR) {
+      impulseSignalR = std::vector<fftw_complex>(transformedSegmentSize);
+      impulseSignalRFT = std::vector<fftw_complex>(transformedSegmentSize);
 
-			uint32_t segmentCount = targetFrames / impulseFrames;
-			uint32_t segmentSize = impulseFrames;
-			uint32_t transformedSegmentSize = 2 * segmentSize;
-			uint32_t transformedSignalSize = (transformedSegmentSize) * segmentCount;
+      paddedTargetSignal = std::vector<fftw_complex>(transformedSignalSize);
 
-      printf("segmentcount: %d\n segmentSize: %d\n transformedSegmentSize: %d\n transformedSignalSize: %d\n",
-             segmentCount, segmentSize, transformedSegmentSize, transformedSignalSize);
+      intermediateSignalL = std::vector<fftw_complex>(transformedSignalSize);
+      intermediateSignalR = std::vector<fftw_complex>(transformedSignalSize);
 
-			impulseSignalL = new float[transformedSignalSize * 2];
-			impulseSignalR = new float[transformedSignalSize * 2];
-      paddedTargetSignalR = new float[transformedSignalSize * 2];
-      paddedTargetSignalL = new float[transformedSignalSize * 2];
+      convolvedSignalL = std::vector<fftw_complex>(transformedSignalSize);
+      convolvedSignalR = std::vector<fftw_complex>(transformedSignalSize);
 
-			// the resultsignal is impulsesize longer than the original
-			mergedSignalL = new float[transformedSignalSize * 2];
-			mergedSignalR = new float[transformedSignalSize * 2];
+      // the resultsignal is impulsesize longer than the original
+      mergedSignalL = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
+      mergedSignalR = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
 
       setUpCL();
 
-			padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignalL);
-      padTargetSignal(target, segmentCount, segmentSize, paddedTargetSignalR);
-      padImpulseSignal(impulseL, impulseSignalL, impulseFrames);
-      padImpulseSignal(impulseL, impulseSignalR, impulseFrames);
+      padTargetSignal(target, segmentCount, segmentSize, transformedSegmentSize, paddedTargetSignal);
 
-      fft(impulseSignalL, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
-      fft(impulseSignalR, transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
+      padImpulseSignal(impulseL, impulseSignalL, segmentSize, transformedSegmentSize);
+      padImpulseSignal(impulseR, impulseSignalR, segmentSize, transformedSegmentSize);
 
-//      transform(paddedTargetSignalL, impulseSignalL, transformedSegmentSize, segmentCount, queue, ctx);
-//      transform(paddedTargetSignalR, impulseSignalR, transformedSegmentSize, segmentCount, queue, ctx);
+      fft(impulseSignalL.begin(), transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
+      fft(impulseSignalR.begin(), transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
 
-			float maxo[2];
-			maxo[0] = 0.0f;
-			maxo[1] = 0.0f;
+      // fourrier transform of target and impulse signal
+      for (int i = 0; i < transformedSignalSize; i += transformedSegmentSize) {
 
-			maxo[0] = maximum(maxo[0], mergeConvolvedSignal(paddedTargetSignalL, mergedSignalL, segmentSize, segmentCount));
-			maxo[1] = maximum(maxo[1], mergeConvolvedSignal(paddedTargetSignalR, mergedSignalR, segmentSize, segmentCount));
+        // chnlvolve only parts of the input and output buffers
+        convolve(paddedTargetSignal.begin() + i, impulseSignalLFT.begin(), intermediateSignalL.begin() + i, convolvedSignalL.begin() + i,
+                 transformedSegmentSize);
+        convolve(paddedTargetSignal.begin() + i, impulseSignalRFT.begin(), intermediateSignalR.begin() + i, convolvedSignalR.begin() + i,
+                 transformedSegmentSize);
+      }
 
-//      for (int j = 0; j < transformedSignalSize * 2; j += 2) {
-//        maxo[0] = maximum(maxo[0], paddedTargetSignalL[j]);
-//        maxo[1] = maximum(maxo[1], paddedTargetSignalR[j]);
+      float maxo[2];
+      maxo[0] = 0.0f;
+      maxo[1] = 0.0f;
+
+      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(convolvedSignalL, mergedSignalL, segmentSize, segmentCount));
+      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(convolvedSignalR, mergedSignalR, segmentSize, segmentCount));
+
+//      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(impulseSignalL, mergedSignalL, segmentSize, segmentCount));
+//      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(impulseSignalR, mergedSignalR, segmentSize, segmentCount));
+
+//      for (int j = 0; j < transformedSignalSize; j++) {
+//        maxo[0] = maximum(maxo[0], convolvedSignalL[j][0]);
+//        maxo[1] = maximum(maxo[1], convolvedSignalR[j][0]);
 //      }
 
-			float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
+      float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
 
-			for (int i = 0; i < transformedSignalSize; i++) {
-        outputL[i] = ((mergedSignalL[i * 2]) / (maxot));
-        outputR[i] = ((mergedSignalR[i * 2]) / (maxot));
-//				outputL[i] = ((paddedTargetSignalL[i * 2]) / (maxot));
-//				outputR[i] = ((paddedTargetSignalR[i * 2]) / (maxot));
-			}
+//      for (int i = 0; i < transformedSignalSize; i++) {
+//        outputL[i] = (float) ((convolvedSignalL[i][0]) / (maxot));
+//        outputR[i] = (float) ((convolvedSignalR[i][0]) / (maxot));
+//      }
+
+      for (int i = 0; i < targetFrames + impulseFrames - 1; i++) {
+        outputL[i] = (float) ((mergedSignalL[i][0]) / (maxot));
+        outputR[i] = (float) ((mergedSignalR[i][0]) / (maxot));
+      }
 
       tearDown();
 
-			return transformedSignalSize;
-		}
+      return segmentSize * (segmentCount + 1);
+    }
 
-		uint32_t transform(float *target,
-											 float *impulse,
-											 uint32_t sampleSize,
-											 uint32_t segmentCount,
-											 cl_command_queue queue,
-											 cl_context) {
-      printf("begin transform\n");
-			cl_int err = 0;
-      printf("create buffer for target signal: %d\n", err);
-			for (int i = 0; i < segmentCount; i++) {
-				// conlvolve only parts of the input and output buffers
-				convolve(&target[i * sampleSize * 2], impulse, sampleSize, queue, ctx);
-			}
-      printf("end transform\n");
-		}
+    uint32_t convolve(std::vector<fftw_complex>::iterator targetSignal,
+                      std::vector<fftw_complex>::iterator impulseSignal,
+                      std::vector<fftw_complex>::iterator intermediateSignal,
+                      std::vector<fftw_complex>::iterator transformedSignal,
+                      uint32_t sampleSize) {
 
-		uint32_t convolve(float *target,
-											float *impulse,
-											uint32_t sampleSize,
-                      cl_command_queue queue,
-                      cl_context) {
+      std::vector<fftw_complex >::iterator cachedTargetSignalStart = targetSignal;
+      // transform signal to frequency domaine
+      fft(targetSignal, sampleSize, CLFFT_FORWARD, queue, ctx);
 
-      printf("begin convolve\n");
+      for (int i = 0; i < sampleSize; i++) {
+        float cacheReal = ((*impulseSignal)[0] * (*targetSignal)[0] - (*impulseSignal)[1] * (*targetSignal)[1]);
+        float cacheImaginary = ((*impulseSignal)[0] * (*targetSignal)[1] + (*impulseSignal)[1] * (*targetSignal)[0]);
+        (*targetSignal)[0] = cacheReal;
+        (*targetSignal)[1] = cacheImaginary;
 
-			// transform signal to frequency domaine
-      fft(target, sampleSize, CLFFT_FORWARD, queue, ctx);
+        impulseSignal++;
+      }
 
-			// convolve target and signal
-			for (int i = 0; i < sampleSize*2; i += 2) {
-        target[i]     = ((impulse[i] * target[i]) - (impulse[i + 1] * target[i + 1]));
-        target[i + 1] = ((impulse[i] * target[i + 1]) + (impulse[i + 1] * target[i]));
-			}
+      // transform result back to time domaine
+      fft(cachedTargetSignalStart, sampleSize, CLFFT_BACKWARD, queue, ctx);
 
-      fft(target, sampleSize, CLFFT_BACKWARD, queue, ctx);
+      return sampleSize;
+    }
 
-      printf("end convolve\n");
-
-			return sampleSize;
-		}
-
-		uint32_t padTargetSignal(float *target, uint32_t segmentCount, uint32_t segmentSize,
-														 float *destinationBuffer) {
-
-			// cut the target signal into samplecount buffers
-			for (int i = 0; i < segmentCount; i++) {
-				// copy targetsignal into new buffer
-				for (int k = 0; k < segmentSize*2; k += 2) {
-					int readOffset = segmentSize * 2 * i + k;
-          int writeOffset = segmentSize * 4 * i + k;
-					destinationBuffer[writeOffset] = target[readOffset];
-					destinationBuffer[writeOffset + 1] = 0.0f;
-//          printf("%d = %f\n", writeOffset, target[readOffset]);
-//          printf("%d = %f\n", writeOffset + 1, 0.0f);
+    void padImpulseSignal(float *impulse, std::vector<fftw_complex> &impulseBuffer, uint32_t  segmentSize, uint32_t transformedSegmentSize)
+    {
+      // copy impulse sound to complex buffer
+      for (int i = 0; i < transformedSegmentSize ; i++) {
+        if (i < segmentSize) {
+          impulseBuffer[i][0] = impulse[i];
+        } else {
+          impulseBuffer[i][0] = 0.0f;
         }
 
-				for (int k = 0; k < segmentSize*2; k += 2) {
-					int writeOffset = segmentSize * i * 4 + 2 * segmentSize +  k;
-					destinationBuffer[writeOffset] = 0.0f;
-					destinationBuffer[writeOffset + 1] = 0.0f;
-//          printf("%d = %f\n", writeOffset, 0.0f);
-//          printf("%d = %f\n", writeOffset + 1, 0.0f);
-				}
-			}
+        impulseBuffer[i][1] = 0.0f;
+      }
+    }
 
-		}
+    void padTargetSignal(float *target, uint32_t segmentCount, uint32_t segmentSize, uint32_t transformedSegmentSize,
+                             std::vector<fftw_complex> &destinationBuffer) {
 
-		float mergeConvolvedSignal(float *longInputBuffer, float *shortOutpuBuffer,
-															 uint32_t sampleSize, uint32_t sampleCount) {
+      for (int i = 0; i < segmentCount; ++i) {
+        // copy targetsignal into new buffer
+        for (int k = 0; k < segmentSize; ++k) {
+          int readOffset = segmentSize * i + k;
+          int writeOffset = segmentSize * 2 * i + k;
 
-      printArray(longInputBuffer, sampleSize * 4 * sampleCount);
-			float max = 0;
-			uint32_t stride = sampleSize * 4;
-			// start with second sample, the first one has no signal tail to merge with
-			for (int i = 0; i <= sampleCount; ++i) {
-				uint32_t readHeadPosition = stride * i;
-				// tail has length samplesize - 1 so the resulting + 1
-				uint32_t readTailPosition = readHeadPosition - 2 * sampleSize;
-				uint32_t writePosition = 2 * sampleSize * i;
+          destinationBuffer[writeOffset][0] = target[readOffset];
+          destinationBuffer[writeOffset][1] = 0.0f;
+        }
 
-				for (int k = 0; k < sampleSize * 2; k += 2) {
-					if (i == 0) {
-						// position is in an area where no tail exists, yet. Speaking the very first element:
-						shortOutpuBuffer[writePosition + k] = longInputBuffer[readHeadPosition + k];
-						shortOutpuBuffer[writePosition + k + 1] = longInputBuffer[readHeadPosition + k + 1];
-						max = maximum(max, shortOutpuBuffer[writePosition + k]);
-					}
+        // pad the buffer with zeros til it reaches a size of samplesize * 2 - 1
+        for (int k = 0; k < transformedSegmentSize - segmentSize; ++k) {
+          int writeOffset = segmentSize * i * 2 + segmentSize +  k;
+          destinationBuffer[writeOffset][0] = 0.0f;
+          destinationBuffer[writeOffset][1] = 0.0f;
+        }
+      }
+    }
+
+    float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutputBuffer,
+                               uint32_t sampleSize, uint32_t sampleCount) {
+      float max = 0;
+      uint32_t stride = sampleSize * 2;
+      // start with second sample, the first one has no signal tail to merge with
+      for (int i = 0; i <= sampleCount; ++i) {
+        uint32_t readHeadPosition = stride * i;
+        // tail has length samplesize - 1 so the resulting + 1
+        uint32_t readTailPosition = readHeadPosition - sampleSize;
+        uint32_t writePosition = sampleSize * i;
+
+        for (int k = 0; k < sampleSize; k++) {
+          if (i == 0) {
+            // position is in an area where no tail exists, yet. Speaking the very first element:
+            shortOutputBuffer[writePosition + k][0] = (float)(longInputBuffer[readHeadPosition + k][0]);
+            shortOutputBuffer[writePosition + k][1] = (float)(longInputBuffer[readHeadPosition + k][1]);
+            max = maximum(max, shortOutputBuffer[writePosition + k][0]);
+          }
           else if (i == sampleCount) {
             // segment add the last tail to output
-            shortOutpuBuffer[writePosition + k] = longInputBuffer[readTailPosition + k];
-            shortOutpuBuffer[writePosition + k + 1] = longInputBuffer[readTailPosition + k + 1];
-            max = maximum(max, shortOutpuBuffer[writePosition + k]);
+            shortOutputBuffer[writePosition + k][0] = (float)(longInputBuffer[readTailPosition + k][0]);
+            shortOutputBuffer[writePosition + k][1] = (float)(longInputBuffer[readTailPosition + k][1]);
+            max = maximum(max, shortOutputBuffer[writePosition + k][0]);
           } else {
             // segment having a head and a tail to summ up
-            shortOutpuBuffer[writePosition + k] =
-                    longInputBuffer[readHeadPosition + k] + longInputBuffer[readTailPosition + k];
-            shortOutpuBuffer[writePosition + k + 1] =
-                    longInputBuffer[readHeadPosition + k + 1] + longInputBuffer[readTailPosition + k + 1];
-            max = maximum(max, shortOutpuBuffer[writePosition + k]);
+            shortOutputBuffer[writePosition + k][0] =
+                    (float)(longInputBuffer[readHeadPosition + k][0] + longInputBuffer[readTailPosition + k][0]);
+            shortOutputBuffer[writePosition + k + 1][0] =
+                    (float)(longInputBuffer[readHeadPosition + k][1] + longInputBuffer[readTailPosition + k][1]);
+            max = maximum(max, shortOutputBuffer[writePosition + k][0]);
           }
-				}
-			}
+        }
+      }
 
-			return max;
-		}
+      return max;
+    }
 
-		inline float maximum(float max, float value) {
-			if (abs(max) <= abs(value)) {
-				max = value;
-			}
+    inline float maximum(float max, float value) {
+      if (abs(max) <= abs(value)) {
+        max = value;
+      }
 
-			return max;
-		}
+      return max;
+    }
 
-		void printArray(float *target, uint32_t size) {
-			printf("\n#####################################\n\n\n\n\n\n");
-			printf("Data (skipping zeros):\n");
-			printf("\n");
+    void printComplexArray(fftw_complex *target, uint32_t size) {
+      printf("\n#####################################\n\n\n\n\n\n");
+      printf("Data (skipping zeros):\n");
+      printf("\n");
 
-			for (int i = 0; i < size; i++) {
-        bool condition = (abs(target[i]) > 0.01);
-//				if(condition) {
-          printf("  %3d  %12f \n", i, target[i]);
-//        }
-			}
-		}
+      for (int i = 0; i < size; i++) {
+        if (target[i][0] != 0.0f || target[i][1] != 0.0f)
+          printf("  %3d  %12f  %12f\n", i, target[i][0], target[i][1]);
+      }
+    }
 
-		void compareVectors(float *vec0, float *vec1, uint32_t size) {
-      printf("Differing vectors:\n");
-			for (int i = 0; i < size; ++i) {
-				if (vec0[0] != vec1[0] || vec0[1] != vec1[1]) {
-					printf("%12f  %12f\n", i, vec0[0], vec1[1]);
-					printf("%12f  %12f\n", i, vec0[0], vec1[1]);
-				}
-			}
-		}
+    void compareVectors(std::vector<fftw_complex> vec0, std::vector<fftw_complex> vec1, uint32_t size) {
+      for (int i = 0; i < size; ++i) {
+        if (vec0[0] != vec1[0] || vec0[1] != vec1[1]) {
+          printf("Differing vectors:\n");
+          printf("%12f  %12f\n", i, vec0[0], vec1[1]);
+          printf("%12f  %12f\n", i, vec0[0], vec1[1]);
+        }
+      }
+    }
 }

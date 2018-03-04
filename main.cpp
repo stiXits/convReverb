@@ -4,8 +4,6 @@
 #include	<sndfile.hh>
 
 #include  "GPUconvOAReverb.h"
-#include "CPUconvSimpleReverb.h"
-#include "CPUconvOAReverb.h"
 
 #define		BUFFER_LEN		1024
 
@@ -152,7 +150,7 @@ int main(int argc, char const *argv[]) {
 
 //	outputSize = cpuconv::oAReverb(targetSignal, 65536*2, filtersx, filterdx, 4096*2, outputsx, outputdx);
 //  outputSize = cpuconv::oAReverb(targetSignal, 512, filtersx, filterdx, 128 , outputsx, outputdx);
-  outputSize = cpuconv::oAReverb(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx);
+  outputSize = gpuconv::oAReverb(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx);
 //	outputSize = CPUconv(targetSignal, targetSoundFrameCount, filtersx, filterdx, impulseResponseFrameCount, outputsx, outputdx,1);
 
 	uint32_t outputLength = outputSize * 2  + 1;
