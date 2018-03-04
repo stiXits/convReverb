@@ -81,20 +81,7 @@ namespace cpuconv {
       maxo[0] = maximum(maxo[0], mergeConvolvedSignal(convolvedSignalL, mergedSignalL, segmentSize, segmentCount));
       maxo[1] = maximum(maxo[1], mergeConvolvedSignal(convolvedSignalR, mergedSignalR, segmentSize, segmentCount));
 
-//      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(impulseSignalL, mergedSignalL, segmentSize, segmentCount));
-//      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(impulseSignalR, mergedSignalR, segmentSize, segmentCount));
-
-//      for (int j = 0; j < transformedSignalSize; j++) {
-//        maxo[0] = maximum(maxo[0], convolvedSignalL[j][0]);
-//        maxo[1] = maximum(maxo[1], convolvedSignalR[j][0]);
-//      }
-
       float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
-
-//      for (int i = 0; i < transformedSignalSize; i++) {
-//        outputL[i] = (float) ((convolvedSignalL[i][0]) / (maxot));
-//        outputR[i] = (float) ((convolvedSignalR[i][0]) / (maxot));
-//      }
 
       for (int i = 0; i < targetFrames + impulseFrames - 1; i++) {
         outputL[i] = (float) ((mergedSignalL[i][0]) / (maxot));
@@ -116,17 +103,11 @@ namespace cpuconv {
                                                        FFTW_ESTIMATE);
       fftw_execute(target_plan_forward);
 
-      // convolve target and signal
-//      for (int i = 0; i < sampleSize; i++) {
-//        intermediateSignal[i][0] = intermediateSignal[i][0];
-//        intermediateSignal[i][1] = intermediateSignal[i][1];
-//      }
-
       for (int i = 0; i < sampleSize; i++) {
-        float cacheReal = (*intermediateSignal)[0];
-        float cacheImaginary =  (*intermediateSignal)[1];
-        (*intermediateSignal)[0] = ((*impulseSignal)[0] * cacheReal - (*impulseSignal)[1] * cacheImaginary);
-        (*intermediateSignal)[1] = ((*impulseSignal)[0] * cacheImaginary + (*impulseSignal)[1] * cacheReal);
+        float cacheReal = ((*impulseSignal)[0] * (*intermediateSignal)[0] - (*impulseSignal)[1] * (*intermediateSignal)[1]);
+        float cacheImaginary = ((*impulseSignal)[0] * (*intermediateSignal)[1] + (*impulseSignal)[1] * (*intermediateSignal)[0]);
+        (*intermediateSignal)[0] = cacheReal;
+        (*intermediateSignal)[1] = cacheImaginary;
 
         intermediateSignal++;
         impulseSignal++;
