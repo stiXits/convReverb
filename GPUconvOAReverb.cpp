@@ -1,7 +1,6 @@
 #include "GPUconvOAReverb.h"
 
 #include <math.h>
-#include <array>
 
 namespace gpuconv {
 
@@ -60,20 +59,6 @@ namespace gpuconv {
       clReleaseContext( ctx );
     }
 
-    void parallelFft(std::vector<std::vector<fftw_complex>>::iterator buffers, uint32_t bufferSize, clfftDirection direction,
-                     cl_command_queue queue, cl_context ctx) {
-      printf("begin parallel fft\n");
-
-      size_t clLengths[1] = {bufferSize};
-      clfftPlanHandle planHandle;
-      clfftDim dim = CLFFT_1D;
-
-      /* Fetch results of calculations. */
-      cl_int err = 0;
-
-
-    }
-
     cl_mem createGPUBuffer(std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize) {
       cl_int err = 0;
       cl_mem bufferHandle = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR , bufferSize * 2 * sizeof(float), NULL, &err );
@@ -123,6 +108,41 @@ namespace gpuconv {
       cl_int err = 0;
       err = clfftEnqueueTransform(planHandle, direction, 1, &queue, 0, NULL, NULL, &bufferHandle, NULL, NULL);
       printf("6: err: %d\n", err);
+    }
+
+    void parallelFft(std::vector<std::vector<fftw_complex>::iterator> buffers, uint32_t bufferSize, clfftDirection direction,
+                     cl_command_queue queue, cl_context ctx) {
+      printf("begin parallel fft\n");
+      cl_int err = 0;
+
+      std::vector<clfftPlanHandle> plans;
+      std::vector<cl_mem> bufferHandles;
+
+      // create all plans
+      for(auto buffer: buffers) {
+        bufferHandles.push_back(createGPUReadBuffer(buffer, bufferSize));
+        plans.push_back(createGPUPlan(bufferSize));
+      }
+
+      // execute plans
+      for(auto&& iteration: zip_range(plans, bufferHandles)) {
+        enqueueGPUPlan(iteration.get<0>(), iteration.get<1>(), direction);
+        err = clFinish(queue);
+      }
+
+      // read results
+      for(auto&& iteration: zip_range(buffers, bufferHandles)) {
+        enqueueGPUReadBuffer(iteration.get<0>(), iteration.get<1>(), bufferSize);
+        err = clFinish(queue);
+      }
+
+      // clean up
+      for(auto&& iteration: zip_range(plans, bufferHandles)) {
+        clfftDestroyPlan(iteration.get<0>());
+        clReleaseMemObject(iteration.get<1>);
+        err = clFinish(queue);
+      }
+
     }
 
     void singleFft(std::vector<fftw_complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction,
