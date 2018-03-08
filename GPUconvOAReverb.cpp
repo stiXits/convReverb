@@ -5,14 +5,14 @@
 namespace gpuconv {
 
 // FFT buffers
-    std::vector<fftw_complex> impulseSignalL;
-    std::vector<fftw_complex> impulseSignalR;
+    std::vector<complex> impulseSignalL;
+    std::vector<complex> impulseSignalR;
 
-    std::vector<fftw_complex> paddedTargetSignalL;
-    std::vector<fftw_complex> paddedTargetSignalR;
+    std::vector<complex> paddedTargetSignalL;
+    std::vector<complex> paddedTargetSignalR;
 
-    std::vector<fftw_complex> mergedSignalL;
-    std::vector<fftw_complex> mergedSignalR;
+    std::vector<complex> mergedSignalL;
+    std::vector<complex> mergedSignalR;
 
     cl_context ctx = 0;
     cl_command_queue queue = 0;
@@ -51,7 +51,7 @@ namespace gpuconv {
       clReleaseContext( ctx );
     }
 
-    cl_mem createGPUBuffer(std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize) {
+    cl_mem createGPUBuffer(std::vector<complex>::iterator &buffer, uint32_t bufferSize) {
       cl_int err = 0;
       cl_mem bufferHandle = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR , bufferSize * 2 * sizeof(float), NULL, &err );
       err = clEnqueueWriteBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), &*buffer, 0, NULL, NULL );
@@ -60,13 +60,13 @@ namespace gpuconv {
       return  bufferHandle;
     }
 
-    void enqueueGPUWriteBuffer(cl_mem &bufferHandle, std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize) {
+    void enqueueGPUWriteBuffer(cl_mem &bufferHandle, std::vector<complex>::iterator &buffer, uint32_t bufferSize) {
       cl_int err = 0;
       err = clEnqueueWriteBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), &*buffer, 0, NULL, NULL );
       printf("enque write buffer: %d\n", err);
     }
 
-    void enqueueGPUReadBuffer(cl_mem &bufferHandle, std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize) {
+    void enqueueGPUReadBuffer(cl_mem &bufferHandle, std::vector<complex>::iterator &buffer, uint32_t bufferSize) {
       cl_int err = 0;
       err = clEnqueueReadBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), &*buffer, 0, NULL, NULL );
       printf("8: err: %d\n", err);
@@ -102,7 +102,7 @@ namespace gpuconv {
       printf("6: err: %d\n", err);
     }
 
-    void fftParallel(std::vector<std::vector<fftw_complex>::iterator> buffers, uint32_t bufferSize, clfftDirection direction,
+    void fftParallel(std::vector<std::vector<complex>::iterator> buffers, uint32_t bufferSize, clfftDirection direction,
                      cl_command_queue queue) {
       printf("begin parallel fft\n");
       cl_int err = 0;
@@ -137,7 +137,7 @@ namespace gpuconv {
 
     }
 
-    void fftSingle(std::vector<fftw_complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction,
+    void fftSingle(std::vector<complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction,
                    cl_command_queue queue)
     {
       printf("begin single fft\n");
@@ -177,15 +177,15 @@ namespace gpuconv {
       uint32_t transformedSegmentSize = 2 * segmentSize;
       uint32_t transformedSignalSize = (transformedSegmentSize) * segmentCount;
 
-      impulseSignalL = std::vector<fftw_complex>(transformedSegmentSize);
-      impulseSignalR = std::vector<fftw_complex>(transformedSegmentSize);
+      impulseSignalL = std::vector<complex>(transformedSegmentSize);
+      impulseSignalR = std::vector<complex>(transformedSegmentSize);
 
-      paddedTargetSignalL = std::vector<fftw_complex>(transformedSignalSize);
-      paddedTargetSignalR = std::vector<fftw_complex>(transformedSignalSize);
+      paddedTargetSignalL = std::vector<complex>(transformedSignalSize);
+      paddedTargetSignalR = std::vector<complex>(transformedSignalSize);
 
       // the resultsignal is impulsesize longer than the original
-      mergedSignalL = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
-      mergedSignalR = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
+      mergedSignalL = std::vector<complex>(segmentSize * (segmentCount + 1));
+      mergedSignalR = std::vector<complex>(segmentSize * (segmentCount + 1));
 
       setUpCL();
 
@@ -198,8 +198,8 @@ namespace gpuconv {
       fftSingle(impulseSignalL.begin(), transformedSegmentSize, CLFFT_FORWARD, queue);
       fftSingle(impulseSignalR.begin(), transformedSegmentSize, CLFFT_FORWARD, queue);
 
-      std::vector<std::vector<fftw_complex>::iterator> buffersL;
-      std::vector<std::vector<fftw_complex>::iterator> buffersR;
+      std::vector<std::vector<complex>::iterator> buffersL;
+      std::vector<std::vector<complex>::iterator> buffersR;
 
       // fourrier transform of target and impulse signal
       for (int i = 0; i < transformedSignalSize; i += transformedSegmentSize) {
@@ -220,8 +220,8 @@ namespace gpuconv {
       float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
 
       for (int i = 0; i < targetFrames + impulseFrames - 1; i++) {
-        outputL[i] = (mergedSignalL[i][0]) / (maxot);
-        outputR[i] = (mergedSignalR[i][0]) / (maxot);
+        outputL[i] = (mergedSignalL[i].real()) / (maxot);
+        outputR[i] = (mergedSignalR[i].real()) / (maxot);
       }
 
       tearDown();
@@ -229,25 +229,23 @@ namespace gpuconv {
       return segmentSize * (segmentCount + 1);
     }
 
-    uint32_t convolveParallel(std::vector<std::vector<fftw_complex>::iterator> targetSignals,
-                              std::vector<fftw_complex>::iterator impulseSignal,
+    uint32_t convolveParallel(std::vector<std::vector<complex>::iterator> targetSignals,
+                              std::vector<complex>::iterator impulseSignal,
                               uint32_t bufferSize) {
-      std::vector<std::vector<fftw_complex >::iterator> cachedTargetIterators = targetSignals;
-      std::vector<fftw_complex >::iterator cachedImpulseIterator = impulseSignal;
+      std::vector<std::vector<complex >::iterator> cachedTargetIterators = targetSignals;
+      std::vector<complex >::iterator cachedImpulseIterator = impulseSignal;
 
       fftParallel(targetSignals, bufferSize, CLFFT_FORWARD, queue);
 
       // do complex multiplication
       for(auto buffer: targetSignals)
       {
-        std::vector<fftw_complex >::iterator localImplulseSignal = cachedImpulseIterator;
-        for (int i = 0; i < bufferSize; i++) {
-          float cacheReal = ((*localImplulseSignal)[0] * (*buffer)[0] - (*localImplulseSignal)[1] * (*buffer)[1]);
-          float cacheImaginary = ((*localImplulseSignal)[0] * (*buffer)[1] + (*localImplulseSignal)[1] * (*buffer)[0]);
-          (*buffer)[0] = cacheReal;
-          (*buffer)[1] = cacheImaginary;
+        std::vector<complex >::iterator localImpulseSignal = cachedImpulseIterator;
 
-          localImplulseSignal++;
+        for (int i = 0; i < bufferSize; i++) {
+          *buffer = (*localImpulseSignal) * (*buffer);
+
+          localImpulseSignal++;
           buffer++;
         }
       }
@@ -257,23 +255,23 @@ namespace gpuconv {
       return bufferSize;
     }
 
-    uint32_t convolve(std::vector<fftw_complex>::iterator targetSignal,
-                      std::vector<fftw_complex>::iterator impulseSignal,
+    uint32_t convolve(std::vector<complex>::iterator targetSignal,
+                      std::vector<complex>::iterator impulseSignal,
                       uint32_t bufferSize) {
 
-      std::vector<fftw_complex >::iterator cachedTargetSignalStart = targetSignal;
+      std::vector<complex >::iterator cachedTargetSignalStart = targetSignal;
       // transform signal to frequency domaine
       fftSingle(targetSignal, bufferSize, CLFFT_FORWARD, queue);
 
-      for (int i = 0; i < bufferSize; i++) {
-        float cacheReal = ((*impulseSignal)[0] * (*targetSignal)[0] - (*impulseSignal)[1] * (*targetSignal)[1]);
-        float cacheImaginary = ((*impulseSignal)[0] * (*targetSignal)[1] + (*impulseSignal)[1] * (*targetSignal)[0]);
-        (*targetSignal)[0] = cacheReal;
-        (*targetSignal)[1] = cacheImaginary;
-
-        impulseSignal++;
-        targetSignal++;
-      }
+//      for (int i = 0; i < bufferSize; i++) {
+//        float cacheReal = ((*impulseSignal)[0] * (*targetSignal)[0] - (*impulseSignal)[1] * (*targetSignal)[1]);
+//        float cacheImaginary = ((*impulseSignal)[0] * (*targetSignal)[1] + (*impulseSignal)[1] * (*targetSignal)[0]);
+//        (*targetSignal)[0] = cacheReal;
+//        (*targetSignal)[1] = cacheImaginary;
+//
+//        impulseSignal++;
+//        targetSignal++;
+//      }
 
       // transform result back to time domaine
       fftSingle(cachedTargetSignalStart, bufferSize, CLFFT_BACKWARD, queue);
@@ -281,44 +279,39 @@ namespace gpuconv {
       return bufferSize;
     }
 
-    void padImpulseSignal(float *impulse, std::vector<fftw_complex> &impulseBuffer, uint32_t  segmentSize,
+    void padImpulseSignal(float *impulse, std::vector<complex> &impulseBuffer, uint32_t  segmentSize,
                           uint32_t transformedSegmentSize)
     {
       // copy impulse sound to complex buffer
       for (int i = 0; i < transformedSegmentSize ; i++) {
         if (i < segmentSize) {
-          impulseBuffer[i][0] = impulse[i];
+          impulseBuffer[i] = complex(impulse[i], 0.f);
         } else {
-          impulseBuffer[i][0] = 0.0f;
+          impulseBuffer[i] = complex(0.f, 0.f);
         }
-
-        impulseBuffer[i][1] = 0.0f;
       }
     }
 
     void padTargetSignal(float *target, uint32_t segmentCount, uint32_t segmentSize, uint32_t transformedSegmentSize,
-                             std::vector<fftw_complex> &destinationBuffer) {
+                             std::vector<complex> &destinationBuffer) {
 
       for (int i = 0; i < segmentCount; ++i) {
         // copy targetsignal into new buffer
         for (int k = 0; k < segmentSize; ++k) {
           int readOffset = segmentSize * i + k;
           int writeOffset = segmentSize * 2 * i + k;
-
-          destinationBuffer[writeOffset][0] = target[readOffset];
-          destinationBuffer[writeOffset][1] = 0.0f;
+          destinationBuffer[writeOffset] = complex(target[readOffset], 0.f);
         }
 
         // pad the buffer with zeros til it reaches a size of samplesize * 2 - 1
         for (int k = 0; k < transformedSegmentSize - segmentSize; ++k) {
           int writeOffset = segmentSize * i * 2 + segmentSize +  k;
-          destinationBuffer[writeOffset][0] = 0.0f;
-          destinationBuffer[writeOffset][1] = 0.0f;
+          destinationBuffer[writeOffset] = complex(0.f, 0.f);
         }
       }
     }
 
-    float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutputBuffer,
+    float mergeConvolvedSignal(std::vector<complex> &longInputBuffer, std::vector<complex> &shortOutputBuffer,
                                uint32_t sampleSize, uint32_t sampleCount) {
       float max = 0;
       uint32_t stride = sampleSize * 2;
@@ -332,22 +325,18 @@ namespace gpuconv {
         for (int k = 0; k < sampleSize; k++) {
           if (i == 0) {
             // position is in an area where no tail exists, yet. Speaking the very first element:
-            shortOutputBuffer[writePosition + k][0] = longInputBuffer[readHeadPosition + k][0];
-            shortOutputBuffer[writePosition + k][1] = longInputBuffer[readHeadPosition + k][1];
-            max = maximum(max, shortOutputBuffer[writePosition + k][0]);
+            shortOutputBuffer[writePosition + k] = longInputBuffer[readHeadPosition + k];
+            max = maximum(max, shortOutputBuffer[writePosition + k].real());
           }
           else if (i == sampleCount) {
             // segment add the last tail to output
-            shortOutputBuffer[writePosition + k][0] = longInputBuffer[readTailPosition + k][0];
-            shortOutputBuffer[writePosition + k][1] = longInputBuffer[readTailPosition + k][1];
-            max = maximum(max, shortOutputBuffer[writePosition + k][0]);
+            shortOutputBuffer[writePosition + k] = longInputBuffer[readTailPosition + k];
+            max = maximum(max, shortOutputBuffer[writePosition + k].real());
           } else {
             // segment having a head and a tail to summ up
-            shortOutputBuffer[writePosition + k][0] =
-                    longInputBuffer[readHeadPosition + k][0] + longInputBuffer[readTailPosition + k][0];
-            shortOutputBuffer[writePosition + k + 1][0] =
-                    longInputBuffer[readHeadPosition + k][1] + longInputBuffer[readTailPosition + k][1];
-            max = maximum(max, shortOutputBuffer[writePosition + k][0]);
+            shortOutputBuffer[writePosition + k] =
+                    longInputBuffer[readHeadPosition + k] + longInputBuffer[readTailPosition + k];
+            max = maximum(max, shortOutputBuffer[writePosition + k].real());
           }
         }
       }

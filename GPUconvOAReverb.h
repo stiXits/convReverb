@@ -13,19 +13,19 @@
 
 namespace gpuconv {
 
-    typedef float fftw_complex[2];
+    typedef std::complex<float> complex;
 
     // wrappers for CL specific operations
     void setUpCL();
-    cl_mem createGPUBuffer(std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize);
-    void enqueueGPUWriteBuffer(cl_mem &bufferHandle, std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize);
-    void enqueueGPUReadBuffer(cl_mem &bufferHandle, std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize);
+    cl_mem createGPUBuffer(std::vector<complex>::iterator &buffer, uint32_t bufferSize);
+    void enqueueGPUWriteBuffer(cl_mem &bufferHandle, std::vector<complex>::iterator &buffer, uint32_t bufferSize);
+    void enqueueGPUReadBuffer(cl_mem &bufferHandle, std::vector<complex>::iterator &buffer, uint32_t bufferSize);
     clfftPlanHandle createGPUPlan(uint32_t bufferSize);
     void enqueueGPUPlan(clfftPlanHandle planHandle, cl_mem &bufferHandle, clfftDirection direction);
 
-    void fftSingle(std::vector<fftw_complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction,
+    void fftSingle(std::vector<complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction,
                    cl_command_queue queue);
-    void fftParallel(std::vector<std::vector<fftw_complex>::iterator> buffers, uint32_t bufferSize,
+    void fftParallel(std::vector<std::vector<complex>::iterator> buffers, uint32_t bufferSize,
                      clfftDirection direction,
                      cl_command_queue queue);
 
@@ -34,17 +34,17 @@ namespace gpuconv {
              float *outputsx, float *outputdx);
 
     void padTargetSignal(float *target, uint32_t segmentCount, uint32_t segmentSize, uint32_t transformedSegmentSize,
-                             std::vector<fftw_complex> &destinationBuffer);
-    void padImpulseSignal(float *impulse, std::vector<fftw_complex> &impulseBuffer, uint32_t  segmentSize, uint32_t transformedSegementSize);
+                             std::vector<complex> &destinationBuffer);
+    void padImpulseSignal(float *impulse, std::vector<complex> &impulseBuffer, uint32_t  segmentSize, uint32_t transformedSegementSize);
 
-    uint32_t convolve(std::vector<fftw_complex>::iterator targetSignal,
-                      std::vector<fftw_complex>::iterator impulseSignal,
+    uint32_t convolve(std::vector<complex>::iterator targetSignal,
+                      std::vector<complex>::iterator impulseSignal,
                       uint32_t bufferSize);
-    uint32_t convolveParallel(std::vector<std::vector<fftw_complex>::iterator> targetSignals,
-                              std::vector<fftw_complex>::iterator impulseSignal,
+    uint32_t convolveParallel(std::vector<std::vector<complex>::iterator> targetSignals,
+                              std::vector<complex>::iterator impulseSignal,
                               uint32_t bufferSize);
 
-    float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutputBuffer,
+    float mergeConvolvedSignal(std::vector<complex> &longInputBuffer, std::vector<complex> &shortOutputBuffer,
                                uint32_t sampleSize, uint32_t sampleCount);
 
     inline float maximum(float maxo, float value);
