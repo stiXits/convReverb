@@ -106,7 +106,7 @@ namespace gpuconv {
       printf("9: err: %d\n", err);
 
       err = clReleaseMemObject(bufferHandle);
-      printf("10: err: %d", err);
+      printf("10: err: %d\n", err);
 
       printf("end fft: %d\n", err);
     }
@@ -151,10 +151,8 @@ namespace gpuconv {
       for (int i = 0; i < transformedSignalSize; i += transformedSegmentSize) {
 
         // chnlvolve only parts of the input and output buffers
-        convolve(paddedTargetSignal.begin() + i, impulseSignalLFT.begin(), intermediateSignalL.begin() + i, convolvedSignalL.begin() + i,
-                 transformedSegmentSize);
-        convolve(paddedTargetSignal.begin() + i, impulseSignalRFT.begin(), intermediateSignalR.begin() + i, convolvedSignalR.begin() + i,
-                 transformedSegmentSize);
+        convolve(paddedTargetSignal.begin() + i, impulseSignalL.begin(), transformedSegmentSize);
+//        convolve(paddedTargetSignal.begin() + i, impulseSignalRFT.begin(), transformedSegmentSize);
       }
 
       float maxo[2];
@@ -191,8 +189,6 @@ namespace gpuconv {
 
     uint32_t convolve(std::vector<fftw_complex>::iterator targetSignal,
                       std::vector<fftw_complex>::iterator impulseSignal,
-                      std::vector<fftw_complex>::iterator intermediateSignal,
-                      std::vector<fftw_complex>::iterator transformedSignal,
                       uint32_t sampleSize) {
 
       std::vector<fftw_complex >::iterator cachedTargetSignalStart = targetSignal;
@@ -206,6 +202,7 @@ namespace gpuconv {
         (*targetSignal)[1] = cacheImaginary;
 
         impulseSignal++;
+        targetSignal++;
       }
 
       // transform result back to time domaine

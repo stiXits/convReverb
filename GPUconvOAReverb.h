@@ -5,11 +5,12 @@
 // including this make fftw3 use std::complex instead of double[2] for complex
 // values which is essential for storing them in a vector
 #include <complex>
-#include <fftw3.h>
 #include <vector>
 #include <clFFT.h>
 
 namespace gpuconv {
+
+    typedef float fftw_complex[2];
 
     void setUpCL();
     void fft(std::vector<fftw_complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction, cl_command_queue queue, cl_context ctx);
@@ -24,8 +25,6 @@ namespace gpuconv {
 
     uint32_t convolve(std::vector<fftw_complex>::iterator targetSignal,
                       std::vector<fftw_complex>::iterator impulseSignal,
-                      std::vector<fftw_complex>::iterator intermediateSignal,
-                      std::vector<fftw_complex>::iterator transformedSignal,
                       uint32_t sampleSize);
 
     float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutputBuffer,
