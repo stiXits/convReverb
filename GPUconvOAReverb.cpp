@@ -110,7 +110,7 @@ namespace gpuconv {
       printf("6: err: %d\n", err);
     }
 
-    void parallelFft(std::vector<std::vector<fftw_complex>::iterator> buffers, uint32_t bufferSize, clfftDirection direction,
+    void fftParallel(std::vector<std::vector<fftw_complex>::iterator> buffers, uint32_t bufferSize, clfftDirection direction,
                      cl_command_queue queue, cl_context ctx) {
       printf("begin parallel fft\n");
       cl_int err = 0;
@@ -120,7 +120,7 @@ namespace gpuconv {
 
       // create all plans
       for(auto buffer: buffers) {
-        bufferHandles.push_back(createGPUReadBuffer(buffer, bufferSize));
+        bufferHandles.push_back(createGPUBuffer(buffer, bufferSize));
         plans.push_back(createGPUPlan(bufferSize));
       }
 
@@ -132,14 +132,14 @@ namespace gpuconv {
 
       // read results
       for(auto&& iteration: zip_range(buffers, bufferHandles)) {
-        enqueueGPUReadBuffer(iteration.get<0>(), iteration.get<1>(), bufferSize);
+        enqueueGPUReadBuffer(iteration.get<1>(), iteration.get<0>(), bufferSize);
         err = clFinish(queue);
       }
 
       // clean up
       for(auto&& iteration: zip_range(plans, bufferHandles)) {
-        clfftDestroyPlan(iteration.get<0>());
-        clReleaseMemObject(iteration.get<1>);
+        clfftDestroyPlan(&iteration.get<0>());
+        clReleaseMemObject(iteration.get<1>());
         err = clFinish(queue);
       }
 
@@ -225,7 +225,8 @@ namespace gpuconv {
 //        convolve(paddedTargetSignal.begin() + i, impulseSignalL.begin(), transformedSegmentSize);
 //        convolve(paddedTargetSignal.begin() + i, impulseSignalRFT.begin(), transformedSegmentSize);
       }
-      convolveParallel(buffersL, )
+      convolveParallel(buffersL, impulseSignalL.begin(), transformedSegmentSize);
+//      convolveParallel(buffersL, impulseSignalL.begin(), transformedSegmentSize);
 
       float maxo[2];
       maxo[0] = 0.0f;
@@ -263,19 +264,21 @@ namespace gpuconv {
                               std::vector<fftw_complex>::iterator impulseSignal,
                               uint32_t bufferSize) {
       std::vector<std::vector<fftw_complex >::iterator> cachedTargetIterators = targetSignals;
+      std::vector<fftw_complex >::iterator cachedImpulseIterator = impulseSignal;
 
       fftParallel(targetSignals, bufferSize, CLFFT_FORWARD, queue, ctx);
 
       // do complex multiplication
       for(auto buffer: targetSignals)
       {
+        std::vector<fftw_complex >::iterator localImplulseSignal = cachedImpulseIterator;
         for (int i = 0; i < bufferSize; i++) {
-          float cacheReal = ((*impulseSignal)[0] * (*buffer)[0] - (*impulseSignal)[1] * (*buffer)[1]);
-          float cacheImaginary = ((*impulseSignal)[0] * (*buffer)[1] + (*impulseSignal)[1] * (*buffer)[0]);
+          float cacheReal = ((*localImplulseSignal)[0] * (*buffer)[0] - (*localImplulseSignal)[1] * (*buffer)[1]);
+          float cacheImaginary = ((*localImplulseSignal)[0] * (*buffer)[1] + (*localImplulseSignal)[1] * (*buffer)[0]);
           (*buffer)[0] = cacheReal;
           (*buffer)[1] = cacheImaginary;
 
-          impulseSignal++;
+          localImplulseSignal++;
           buffer++;
         }
       }

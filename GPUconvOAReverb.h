@@ -8,6 +8,8 @@
 #include <vector>
 #include <clFFT.h>
 #include <boost/iterator/zip_iterator.hpp>
+#include <boost/range/iterator_range_core.hpp>
+#include <boost/iterator.hpp>
 
 namespace gpuconv {
 
@@ -15,7 +17,7 @@ namespace gpuconv {
 
     // wrappers for CL specific operations
     void setUpCL();
-    cl_mem createGPUReadBuffer(std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize);
+    cl_mem createGPUBuffer(std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize);
     void enqueueGPUWriteBuffer(cl_mem &bufferHandle, std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize);
     void enqueueGPUReadBuffer(cl_mem &bufferHandle, std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize);
     clfftPlanHandle createGPUPlan(uint32_t bufferSize);
@@ -50,7 +52,7 @@ namespace gpuconv {
     inline float maximum(float maxo, float value);
 
     template<class... Conts>
-    auto zip_range(std::vector&... conts)
+    auto zip_range(Conts&... conts)
     -> decltype(boost::make_iterator_range(
             boost::make_zip_iterator(boost::make_tuple(conts.begin()...)),
             boost::make_zip_iterator(boost::make_tuple(conts.end()...))))
