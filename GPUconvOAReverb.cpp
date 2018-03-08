@@ -11,7 +11,8 @@ namespace gpuconv {
     std::vector<fftw_complex> impulseSignalR;
     std::vector<fftw_complex> impulseSignalRFT;
 
-    std::vector<fftw_complex> paddedTargetSignal;
+    std::vector<fftw_complex> paddedTargetSignalL;
+    std::vector<fftw_complex> paddedTargetSignalR;
 
     std::vector<fftw_complex> intermediateSignalL;
     std::vector<fftw_complex> intermediateSignalR;
@@ -191,7 +192,8 @@ namespace gpuconv {
       impulseSignalR = std::vector<fftw_complex>(transformedSegmentSize);
       impulseSignalRFT = std::vector<fftw_complex>(transformedSegmentSize);
 
-      paddedTargetSignal = std::vector<fftw_complex>(transformedSignalSize);
+      paddedTargetSignalL = std::vector<fftw_complex>(transformedSignalSize);
+      paddedTargetSignalR = std::vector<fftw_complex>(transformedSignalSize);
 
       intermediateSignalL = std::vector<fftw_complex>(transformedSignalSize);
       intermediateSignalR = std::vector<fftw_complex>(transformedSignalSize);
@@ -205,7 +207,8 @@ namespace gpuconv {
 
       setUpCL();
 
-      padTargetSignal(target, segmentCount, segmentSize, transformedSegmentSize, paddedTargetSignal);
+      padTargetSignal(target, segmentCount, segmentSize, transformedSegmentSize, paddedTargetSignalL);
+      padTargetSignal(target, segmentCount, segmentSize, transformedSegmentSize, paddedTargetSignalR);
 
       padImpulseSignal(impulseL, impulseSignalL, segmentSize, transformedSegmentSize);
       padImpulseSignal(impulseR, impulseSignalR, segmentSize, transformedSegmentSize);
@@ -219,21 +222,23 @@ namespace gpuconv {
       for (int i = 0; i < transformedSignalSize; i += transformedSegmentSize) {
 
         // todo: use buffers for left and right
-        buffersL.push_back(paddedTargetSignal.begin() + i);
-        buffersR.push_back(paddedTargetSignal.begin() + i);
+        buffersL.push_back(paddedTargetSignalL.begin() + i);
+        buffersR.push_back(paddedTargetSignalR.begin() + i);
         // chnlvolve only parts of the input and output buffers
 //        convolve(paddedTargetSignal.begin() + i, impulseSignalL.begin(), transformedSegmentSize);
 //        convolve(paddedTargetSignal.begin() + i, impulseSignalRFT.begin(), transformedSegmentSize);
       }
       convolveParallel(buffersL, impulseSignalL.begin(), transformedSegmentSize);
+      convolveParallel(buffersR, impulseSignalR.begin(), transformedSegmentSize);
+
 //      convolveParallel(buffersL, impulseSignalL.begin(), transformedSegmentSize);
 
       float maxo[2];
       maxo[0] = 0.0f;
       maxo[1] = 0.0f;
 
-      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(paddedTargetSignal, mergedSignalL, segmentSize, segmentCount));
-      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(paddedTargetSignal, mergedSignalR, segmentSize, segmentCount));
+      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(paddedTargetSignalL, mergedSignalL, segmentSize, segmentCount));
+      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(paddedTargetSignalR, mergedSignalR, segmentSize, segmentCount));
 
 //      maxo[0] = maximum(maxo[0], mergeConvolvedSignal(impulseSignalL, mergedSignalL, segmentSize, segmentCount));
 //      maxo[1] = maximum(maxo[1], mergeConvolvedSignal(impulseSignalR, mergedSignalR, segmentSize, segmentCount));
