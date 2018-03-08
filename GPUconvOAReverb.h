@@ -21,10 +21,11 @@ namespace gpuconv {
     clfftPlanHandle createGPUPlan(uint32_t bufferSize);
     void enqueueGPUPlan(clfftPlanHandle planHandle, cl_mem &bufferHandle, clfftDirection direction);
 
-    void singleFft(std::vector<fftw_complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction,
+    void fftSingle(std::vector<fftw_complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction,
                    cl_command_queue queue, cl_context ctx);
-    void parallelFft(std::vector<std::vector<fftw_complex>>::iterator buffers, uint32_t bufferSize, clfftDirection direction,
-                   cl_command_queue queue, cl_context ctx);
+    void fftParallel(std::vector<std::vector<fftw_complex>::iterator> buffers, uint32_t bufferSize,
+                     clfftDirection direction,
+                     cl_command_queue queue, cl_context ctx);
 
     uint32_t
     oAReverb(float *target, uint32_t targetFrames, float *impulsesx, float *impulsedx, uint32_t impulseFrames,
@@ -36,7 +37,10 @@ namespace gpuconv {
 
     uint32_t convolve(std::vector<fftw_complex>::iterator targetSignal,
                       std::vector<fftw_complex>::iterator impulseSignal,
-                      uint32_t sampleSize);
+                      uint32_t bufferSize);
+    uint32_t convolveParallel(std::vector<std::vector<fftw_complex>::iterator> targetSignals,
+                              std::vector<fftw_complex>::iterator impulseSignal,
+                              uint32_t bufferSize);
 
     float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutputBuffer,
                                uint32_t sampleSize, uint32_t sampleCount);

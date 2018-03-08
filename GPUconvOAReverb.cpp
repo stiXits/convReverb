@@ -145,7 +145,7 @@ namespace gpuconv {
 
     }
 
-    void singleFft(std::vector<fftw_complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction,
+    void fftSingle(std::vector<fftw_complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction,
                    cl_command_queue queue, cl_context ctx)
     {
       printf("begin single fft\n");
@@ -210,16 +210,22 @@ namespace gpuconv {
       padImpulseSignal(impulseL, impulseSignalL, segmentSize, transformedSegmentSize);
       padImpulseSignal(impulseR, impulseSignalR, segmentSize, transformedSegmentSize);
 
-      singleFft(impulseSignalL.begin(), transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
-      singleFft(impulseSignalR.begin(), transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
+      fftSingle(impulseSignalL.begin(), transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
+      fftSingle(impulseSignalR.begin(), transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
 
+      std::vector<std::vector<fftw_complex>::iterator> buffersL;
+      std::vector<std::vector<fftw_complex>::iterator> buffersR;
       // fourrier transform of target and impulse signal
       for (int i = 0; i < transformedSignalSize; i += transformedSegmentSize) {
 
+        // todo: use buffers for left and right
+        buffersL.push_back(paddedTargetSignal.begin() + i);
+        buffersR.push_back(paddedTargetSignal.begin() + i);
         // chnlvolve only parts of the input and output buffers
-        convolve(paddedTargetSignal.begin() + i, impulseSignalL.begin(), transformedSegmentSize);
+//        convolve(paddedTargetSignal.begin() + i, impulseSignalL.begin(), transformedSegmentSize);
 //        convolve(paddedTargetSignal.begin() + i, impulseSignalRFT.begin(), transformedSegmentSize);
       }
+      convolveParallel(buffersL, )
 
       float maxo[2];
       maxo[0] = 0.0f;
@@ -253,15 +259,41 @@ namespace gpuconv {
       return segmentSize * (segmentCount + 1);
     }
 
+    uint32_t convolveParallel(std::vector<std::vector<fftw_complex>::iterator> targetSignals,
+                              std::vector<fftw_complex>::iterator impulseSignal,
+                              uint32_t bufferSize) {
+      std::vector<std::vector<fftw_complex >::iterator> cachedTargetIterators = targetSignals;
+
+      fftParallel(targetSignals, bufferSize, CLFFT_FORWARD, queue, ctx);
+
+      // do complex multiplication
+      for(auto buffer: targetSignals)
+      {
+        for (int i = 0; i < bufferSize; i++) {
+          float cacheReal = ((*impulseSignal)[0] * (*buffer)[0] - (*impulseSignal)[1] * (*buffer)[1]);
+          float cacheImaginary = ((*impulseSignal)[0] * (*buffer)[1] + (*impulseSignal)[1] * (*buffer)[0]);
+          (*buffer)[0] = cacheReal;
+          (*buffer)[1] = cacheImaginary;
+
+          impulseSignal++;
+          buffer++;
+        }
+      }
+
+      fftParallel(targetSignals, bufferSize, CLFFT_BACKWARD, queue, ctx);
+
+      return bufferSize;
+    }
+
     uint32_t convolve(std::vector<fftw_complex>::iterator targetSignal,
                       std::vector<fftw_complex>::iterator impulseSignal,
-                      uint32_t sampleSize) {
+                      uint32_t bufferSize) {
 
       std::vector<fftw_complex >::iterator cachedTargetSignalStart = targetSignal;
       // transform signal to frequency domaine
-      singleFft(targetSignal, sampleSize, CLFFT_FORWARD, queue, ctx);
+      fftSingle(targetSignal, bufferSize, CLFFT_FORWARD, queue, ctx);
 
-      for (int i = 0; i < sampleSize; i++) {
+      for (int i = 0; i < bufferSize; i++) {
         float cacheReal = ((*impulseSignal)[0] * (*targetSignal)[0] - (*impulseSignal)[1] * (*targetSignal)[1]);
         float cacheImaginary = ((*impulseSignal)[0] * (*targetSignal)[1] + (*impulseSignal)[1] * (*targetSignal)[0]);
         (*targetSignal)[0] = cacheReal;
@@ -272,9 +304,9 @@ namespace gpuconv {
       }
 
       // transform result back to time domaine
-      singleFft(cachedTargetSignalStart, sampleSize, CLFFT_BACKWARD, queue, ctx);
+      fftSingle(cachedTargetSignalStart, bufferSize, CLFFT_BACKWARD, queue, ctx);
 
-      return sampleSize;
+      return bufferSize;
     }
 
     void padImpulseSignal(float *impulse, std::vector<fftw_complex> &impulseBuffer, uint32_t  segmentSize, uint32_t transformedSegmentSize)
