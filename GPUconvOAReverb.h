@@ -58,4 +58,5 @@ namespace gpuconv {
       return {boost::make_zip_iterator(boost::make_tuple(conts.begin()...)),
               boost::make_zip_iterator(boost::make_tuple(conts.end()...))};
     }
+
 }

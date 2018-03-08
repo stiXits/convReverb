@@ -199,25 +199,4 @@ namespace cpuconv {
 
       return max;
     }
-
-    void printComplexArray(fftw_complex *target, uint32_t size) {
-      printf("\n#####################################\n\n\n\n\n\n");
-      printf("Data (skipping zeros):\n");
-      printf("\n");
-
-      for (int i = 0; i < size; i++) {
-        if (target[i][0] != 0.0f || target[i][1] != 0.0f)
-          printf("  %3d  %12f  %12f\n", i, target[i][0], target[i][1]);
-      }
-    }
-
-    void compareVectors(std::vector<fftw_complex> vec0, std::vector<fftw_complex> vec1, uint32_t size) {
-      for (int i = 0; i < size; ++i) {
-        if (vec0[0] != vec1[0] || vec0[1] != vec1[1]) {
-          printf("Differing vectors:\n");
-          printf("%12f  %12f\n", i, vec0[0], vec1[1]);
-          printf("%12f  %12f\n", i, vec0[0], vec1[1]);
-        }
-      }
-    }
 }
