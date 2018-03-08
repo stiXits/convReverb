@@ -4,8 +4,6 @@ project(impl)
 set(CMAKE_CXX_STANDARD 11)
 
 add_executable(impl
-        CPUconv.cpp
-        CPUconv.hpp
         CPUconvIdentity.cpp
         CPUconvIdentity.h
         CPUconvOAReverb.cpp

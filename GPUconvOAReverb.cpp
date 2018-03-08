@@ -60,9 +60,9 @@ namespace gpuconv {
       clReleaseContext( ctx );
     }
 
-    void fft(std::vector<fftw_complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction, cl_command_queue queue, cl_context ctx)
-    {
-      printf("begin fft\n");
+    void parallelFft(std::vector<std::vector<fftw_complex>>::iterator buffers, uint32_t bufferSize, clfftDirection direction,
+                     cl_command_queue queue, cl_context ctx) {
+      printf("begin parallel fft\n");
 
       size_t clLengths[1] = {bufferSize};
       clfftPlanHandle planHandle;
@@ -71,11 +71,36 @@ namespace gpuconv {
       /* Fetch results of calculations. */
       cl_int err = 0;
 
+
+    }
+
+    cl_mem createGPUBuffer(std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize) {
+      cl_int err = 0;
       cl_mem bufferHandle = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR , bufferSize * 2 * sizeof(float), NULL, &err );
       err = clEnqueueWriteBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), &*buffer, 0, NULL, NULL );
       printf("enque write buffer: %d\n", err);
 
-      /* Create a default plan for a complex FFT. */
+      return  bufferHandle;
+    }
+
+    void enqueueGPUWriteBuffer(cl_mem &bufferHandle, std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize) {
+      cl_int err = 0;
+      err = clEnqueueWriteBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), &*buffer, 0, NULL, NULL );
+      printf("enque write buffer: %d\n", err);
+    }
+
+    void enqueueGPUReadBuffer(cl_mem &bufferHandle, std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize) {
+      cl_int err = 0;
+      err = clEnqueueReadBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), &*buffer, 0, NULL, NULL );
+      printf("8: err: %d\n", err);
+    }
+
+    clfftPlanHandle createGPUPlan(uint32_t bufferSize) {
+      clfftPlanHandle planHandle;
+      cl_int err;
+      clfftDim dim = CLFFT_1D;
+      size_t clLengths[1] = {bufferSize};
+
       err = clfftCreateDefaultPlan(&planHandle, ctx, dim, clLengths);
       printf("1: err: %d\n", err);
 
@@ -90,19 +115,40 @@ namespace gpuconv {
       /* Bake the plan. */
       err = clfftBakePlan(planHandle, 1, &queue, NULL, NULL);
       printf("5: err: %d\n", err);
-      /* Execute the plan. */
+
+      return planHandle;
+    }
+
+    void enqueueGPUPlan(clfftPlanHandle planHandle, cl_mem &bufferHandle, clfftDirection direction) {
+      cl_int err = 0;
       err = clfftEnqueueTransform(planHandle, direction, 1, &queue, 0, NULL, NULL, &bufferHandle, NULL, NULL);
       printf("6: err: %d\n", err);
+    }
+
+    void singleFft(std::vector<fftw_complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction,
+                   cl_command_queue queue, cl_context ctx)
+    {
+      printf("begin single fft\n");
+
+      /* Fetch results of calculations. */
+      cl_int err = 0;
+
+      cl_mem bufferHandle = createGPUBuffer(buffer, bufferSize);
+      enqueueGPUWriteBuffer(bufferHandle, buffer, bufferSize);
+
+      /* Create a default plan for a complex FFT. */
+      clfftPlanHandle plan = createGPUPlan(bufferSize);
+
+      enqueueGPUPlan(plan, bufferHandle, direction);
 
       /* Wait for calculations to be finished. */
       err = clFinish(queue);
       printf("7: err: %d\n", err);
 
       /* Fetch results of calculations. */
-      err = clEnqueueReadBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), &*buffer, 0, NULL, NULL );
-      printf("8: err: %d\n", err);
+      enqueueGPUReadBuffer(bufferHandle, buffer, bufferSize);
 
-      err = clfftDestroyPlan( &planHandle );
+      err = clfftDestroyPlan(&plan);
       printf("9: err: %d\n", err);
 
       err = clReleaseMemObject(bufferHandle);
@@ -144,8 +190,8 @@ namespace gpuconv {
       padImpulseSignal(impulseL, impulseSignalL, segmentSize, transformedSegmentSize);
       padImpulseSignal(impulseR, impulseSignalR, segmentSize, transformedSegmentSize);
 
-      fft(impulseSignalL.begin(), transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
-      fft(impulseSignalR.begin(), transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
+      singleFft(impulseSignalL.begin(), transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
+      singleFft(impulseSignalR.begin(), transformedSegmentSize, CLFFT_FORWARD, queue, ctx);
 
       // fourrier transform of target and impulse signal
       for (int i = 0; i < transformedSignalSize; i += transformedSegmentSize) {
@@ -193,7 +239,7 @@ namespace gpuconv {
 
       std::vector<fftw_complex >::iterator cachedTargetSignalStart = targetSignal;
       // transform signal to frequency domaine
-      fft(targetSignal, sampleSize, CLFFT_FORWARD, queue, ctx);
+      singleFft(targetSignal, sampleSize, CLFFT_FORWARD, queue, ctx);
 
       for (int i = 0; i < sampleSize; i++) {
         float cacheReal = ((*impulseSignal)[0] * (*targetSignal)[0] - (*impulseSignal)[1] * (*targetSignal)[1]);
@@ -206,7 +252,7 @@ namespace gpuconv {
       }
 
       // transform result back to time domaine
-      fft(cachedTargetSignalStart, sampleSize, CLFFT_BACKWARD, queue, ctx);
+      singleFft(cachedTargetSignalStart, sampleSize, CLFFT_BACKWARD, queue, ctx);
 
       return sampleSize;
     }

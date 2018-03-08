@@ -12,8 +12,18 @@ namespace gpuconv {
 
     typedef float fftw_complex[2];
 
+    // wrappers for CL specific operations
     void setUpCL();
-    void fft(std::vector<fftw_complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction, cl_command_queue queue, cl_context ctx);
+    cl_mem createGPUBuffer(std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize);
+    void enqueueGPUWriteBuffer(cl_mem &bufferHandle, std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize);
+    void enqueueGPUReadBuffer(cl_mem &bufferHandle, std::vector<fftw_complex>::iterator &buffer, uint32_t bufferSize);
+    clfftPlanHandle createGPUPlan(uint32_t bufferSize);
+    void enqueueGPUPlan(clfftPlanHandle planHandle, cl_mem &bufferHandle, clfftDirection direction);
+
+    void singleFft(std::vector<fftw_complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction,
+                   cl_command_queue queue, cl_context ctx);
+    void parallelFft(std::vector<std::vector<fftw_complex>>::iterator buffers, uint32_t bufferSize, clfftDirection direction,
+                   cl_command_queue queue, cl_context ctx);
 
     uint32_t
     oAReverb(float *target, uint32_t targetFrames, float *impulsesx, float *impulsedx, uint32_t impulseFrames,
@@ -33,11 +43,4 @@ namespace gpuconv {
     void printComplexArray(fftw_complex *target, uint32_t size);
 
     inline float maximum(float maxo, float value);
-
-    uint32_t transform(std::vector<fftw_complex> target,
-                       std::vector<fftw_complex> impulse,
-                       uint32_t sampleSize,
-                       uint32_t segmentCount,
-                       cl_command_queue queue,
-                       cl_context);
 }
