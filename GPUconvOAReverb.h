@@ -24,10 +24,10 @@ namespace gpuconv {
     void enqueueGPUPlan(clfftPlanHandle planHandle, cl_mem &bufferHandle, clfftDirection direction);
 
     void fftSingle(std::vector<fftw_complex>::iterator buffer, uint32_t bufferSize, clfftDirection direction,
-                   cl_command_queue queue, cl_context ctx);
+                   cl_command_queue queue);
     void fftParallel(std::vector<std::vector<fftw_complex>::iterator> buffers, uint32_t bufferSize,
                      clfftDirection direction,
-                     cl_command_queue queue, cl_context ctx);
+                     cl_command_queue queue);
 
     uint32_t
     oAReverb(float *target, uint32_t targetFrames, float *impulsesx, float *impulsedx, uint32_t impulseFrames,
@@ -46,8 +46,6 @@ namespace gpuconv {
 
     float mergeConvolvedSignal(std::vector<fftw_complex> &longInputBuffer, std::vector<fftw_complex> &shortOutputBuffer,
                                uint32_t sampleSize, uint32_t sampleCount);
-
-    void printComplexArray(fftw_complex *target, uint32_t size);
 
     inline float maximum(float maxo, float value);
 
