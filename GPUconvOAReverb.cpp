@@ -1,18 +1,9 @@
 #include "GPUconvOAReverb.h"
 
 #include <math.h>
+#include <ctime>
 
 namespace gpuconv {
-
-// FFT buffers
-    std::vector<complex> impulseSignalL;
-    std::vector<complex> impulseSignalR;
-
-    std::vector<complex> paddedTargetSignalL;
-    std::vector<complex> paddedTargetSignalR;
-
-    std::vector<complex> mergedSignalL;
-    std::vector<complex> mergedSignalR;
 
     cl_context ctx = 0;
     cl_command_queue queue = 0;
@@ -141,28 +132,30 @@ namespace gpuconv {
       enqueueGPUPlan(plan, bufferHandle, direction);
       err = clFinish(queue);
       enqueueGPUReadBuffer(bufferHandle, buffer, bufferSize);
-      err = clfftDestroyPlan(&plan);
-
       err = clReleaseMemObject(bufferHandle);
+      err = clfftDestroyPlan(&plan);
     }
 
     uint32_t
-    oAReverb(float *target, uint32_t targetFrames, float *impulseL, float *impulseR, uint32_t impulseFrames,
-             float *outputL, float *outputR) {
+    oAReverb(float* &target, uint32_t targetFrames, float* &impulseL, float* &impulseR, uint32_t impulseFrames,
+             float* &outputL, float* &outputR) {
       uint32_t segmentCount = targetFrames / impulseFrames;
+      if(segmentCount < 1) {
+        segmentCount = 1;
+      }
       uint32_t segmentSize = impulseFrames;
       uint32_t transformedSegmentSize = 2 * segmentSize;
       uint32_t transformedSignalSize = (transformedSegmentSize) * segmentCount;
 
-      impulseSignalL = std::vector<complex>(transformedSegmentSize);
-      impulseSignalR = std::vector<complex>(transformedSegmentSize);
+      std::vector<complex> impulseSignalL(transformedSegmentSize);
+      std::vector<complex> impulseSignalR(transformedSegmentSize);
 
-      paddedTargetSignalL = std::vector<complex>(transformedSignalSize);
-      paddedTargetSignalR = std::vector<complex>(transformedSignalSize);
+      std::vector<complex> paddedTargetSignalL(transformedSignalSize);
+      std::vector<complex> paddedTargetSignalR(transformedSignalSize);
 
       // the resultsignal is impulsesize longer than the original
-      mergedSignalL = std::vector<complex>(segmentSize * (segmentCount + 1));
-      mergedSignalR = std::vector<complex>(segmentSize * (segmentCount + 1));
+      std::vector<complex> mergedSignalL(segmentSize * (segmentCount + 1));
+      std::vector<complex> mergedSignalR(segmentSize * (segmentCount + 1));
 
       setUpCL();
 
@@ -178,6 +171,7 @@ namespace gpuconv {
       std::vector<std::vector<complex>::iterator> buffersL;
       std::vector<std::vector<complex>::iterator> buffersR;
 
+      clock_t begin = clock();
       // fourrier transform of target and impulse signal
       for (int i = 0; i < transformedSignalSize; i += transformedSegmentSize) {
         buffersL.push_back(paddedTargetSignalL.begin() + i);
@@ -186,6 +180,10 @@ namespace gpuconv {
 
       convolveParallel(buffersL, impulseSignalL.begin(), transformedSegmentSize);
       convolveParallel(buffersR, impulseSignalR.begin(), transformedSegmentSize);
+      clock_t end = clock();
+      double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+      printf("time consumed for raw convolution: %f seconds\n", elapsed_secs);
+
 
       float maxo[2];
       maxo[0] = 0.0f;
@@ -270,13 +268,13 @@ namespace gpuconv {
         // copy targetsignal into new buffer
         for (int k = 0; k < segmentSize; ++k) {
           int readOffset = segmentSize * i + k;
-          int writeOffset = segmentSize * 2 * i + k;
+          int writeOffset = transformedSegmentSize * i + k;
           destinationBuffer[writeOffset] = complex(target[readOffset], 0.f);
         }
 
         // pad the buffer with zeros til it reaches a size of samplesize * 2 - 1
         for (int k = 0; k < transformedSegmentSize - segmentSize; ++k) {
-          int writeOffset = segmentSize * i * 2 + segmentSize +  k;
+          int writeOffset = transformedSegmentSize + segmentSize +  k;
           destinationBuffer[writeOffset] = complex(0.f, 0.f);
         }
       }

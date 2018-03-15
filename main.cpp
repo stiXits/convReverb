@@ -1,5 +1,6 @@
 #include	<cstdio>
 #include	<cstdint>
+#include <ctime>
 
 #include	<sndfile.hh>
 
@@ -153,13 +154,68 @@ int main(int argc, char const *argv[]) {
 	float* outputsx=(float*)malloc(sizeof(float) * (transformedSignalSize));
 	float* outputdx=(float*)malloc(sizeof(float) * (transformedSignalSize));
 
+  uint32_t sampleSize = targetSoundFrameCount;
+
+  printf("sampleSize: %d: \n", sampleSize);
+  clock_t begin = clock();
   outputSize = cpuconv::oAReverb(targetSignal,
-                                 targetSoundFrameCount,
+																 sampleSize,
                                  filtersx,
                                  filterdx,
                                  roundedBaseTwoImpulseFrames,
                                  outputsx,
                                  outputdx);
+  clock_t end = clock();
+  double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+  outputSize = gpuconv::oAReverb(targetSignal,
+																 sampleSize,
+                                 filtersx,
+                                 filterdx,
+                                 roundedBaseTwoImpulseFrames,
+                                 outputsx,
+                                 outputdx);
+
+  printf("time consumed for cpu effect: %f seconds\n", elapsed_secs);
+
+  begin = clock();
+  outputSize = gpuconv::oAReverb(targetSignal,
+                                 sampleSize,
+                                 filtersx,
+                                 filterdx,
+                                 roundedBaseTwoImpulseFrames,
+                                 outputsx,
+                                 outputdx);
+  end = clock();
+  elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+  printf("time consumed for gpu effect: %f seconds\n", elapsed_secs);
+
+  for (int j = 2; j < 16; j += 2) {
+    printf("sampleSize: %d: \n", sampleSize/j);
+    clock_t begin = clock();
+    outputSize = cpuconv::oAReverb(targetSignal,
+                                   sampleSize/j,
+                                   filtersx,
+                                   filterdx,
+                                   roundedBaseTwoImpulseFrames,
+                                   outputsx,
+                                   outputdx);
+    clock_t end = clock();
+    double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+
+    printf("time consumed for cpu effect: %f seconds\n", elapsed_secs);
+
+    begin = clock();
+    outputSize = gpuconv::oAReverb(targetSignal,
+                                   sampleSize/j,
+                                   filtersx,
+                                   filterdx,
+                                   roundedBaseTwoImpulseFrames,
+                                   outputsx,
+                                   outputdx);
+    end = clock();
+    elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+    printf("time consumed for gpu effect: %f seconds\n", elapsed_secs);
+  }
 
 	uint32_t outputLength = outputSize * 2  + 1;
 	printf("outputSize: \t\t%d\n", outputSize);

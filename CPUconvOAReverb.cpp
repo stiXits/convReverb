@@ -2,54 +2,40 @@
 
 #include <math.h>
 #include <array>
+#include <ctime>
 
 namespace cpuconv {
 
-// FFT buffers
-    std::vector<fftw_complex> impulseSignalL;
-    std::vector<fftw_complex> impulseSignalLFT;
-
-    std::vector<fftw_complex> impulseSignalR;
-    std::vector<fftw_complex> impulseSignalRFT;
-
-    std::vector<fftw_complex> paddedTargetSignal;
-
-    std::vector<fftw_complex> intermediateSignalL;
-    std::vector<fftw_complex> intermediateSignalR;
-
-    std::vector<fftw_complex> convolvedSignalL;
-    std::vector<fftw_complex> convolvedSignalR;
-
-    std::vector<fftw_complex> mergedSignalL;
-    std::vector<fftw_complex> mergedSignalR;
-
     uint32_t
-    oAReverb(float *target, uint32_t targetFrames, float *impulseL, float *impulseR, uint32_t impulseFrames,
+    oAReverb(float* &target, uint32_t targetFrames, float* &impulseL, float* &impulseR, uint32_t impulseFrames,
              float *outputL, float *outputR) {
 
       fftw_plan impulseL_plan_forward, impulseR_plan_forward;
       uint32_t segmentCount = targetFrames / impulseFrames;
+      if(segmentCount < 1) {
+        segmentCount = 1;
+      }
       uint32_t segmentSize = impulseFrames;
       uint32_t transformedSegmentSize = 2 * segmentSize - 1;
       uint32_t transformedSignalSize = (transformedSegmentSize) * segmentCount;
 
-      impulseSignalL = std::vector<fftw_complex>(transformedSegmentSize);
-      impulseSignalLFT = std::vector<fftw_complex>(transformedSegmentSize);
+      std::vector<fftw_complex> impulseSignalL(transformedSegmentSize);
+      std::vector<fftw_complex> impulseSignalLFT(transformedSegmentSize);
 
-      impulseSignalR = std::vector<fftw_complex>(transformedSegmentSize);
-      impulseSignalRFT = std::vector<fftw_complex>(transformedSegmentSize);
+      std::vector<fftw_complex> impulseSignalR(transformedSegmentSize);
+      std::vector<fftw_complex> impulseSignalRFT(transformedSegmentSize);
 
-      paddedTargetSignal = std::vector<fftw_complex>(transformedSignalSize);
+      std::vector<fftw_complex> paddedTargetSignal(transformedSignalSize);
 
-      intermediateSignalL = std::vector<fftw_complex>(transformedSignalSize);
-      intermediateSignalR = std::vector<fftw_complex>(transformedSignalSize);
+      std::vector<fftw_complex> intermediateSignalL(transformedSignalSize);
+      std::vector<fftw_complex> intermediateSignalR(transformedSignalSize);
 
-      convolvedSignalL = std::vector<fftw_complex>(transformedSignalSize);
-      convolvedSignalR = std::vector<fftw_complex>(transformedSignalSize);
+      std::vector<fftw_complex> convolvedSignalL(transformedSignalSize);
+      std::vector<fftw_complex> convolvedSignalR(transformedSignalSize);
 
       // the resultsignal is impulsesize longer than the original
-      mergedSignalL = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
-      mergedSignalR = std::vector<fftw_complex>(segmentSize * (segmentCount + 1));
+      std::vector<fftw_complex> mergedSignalL(segmentSize * (segmentCount + 1));
+      std::vector<fftw_complex> mergedSignalR(segmentSize * (segmentCount + 1));
 
       padTargetSignal(target, segmentCount, segmentSize, transformedSegmentSize, paddedTargetSignal);
 
@@ -64,6 +50,7 @@ namespace cpuconv {
                                                FFTW_FORWARD, FFTW_ESTIMATE);
       fftw_execute(impulseR_plan_forward);
 
+      clock_t begin = clock();
       // fourrier transform of target and impulse signal
       for (int i = 0; i < transformedSignalSize; i += transformedSegmentSize) {
 
@@ -81,9 +68,13 @@ namespace cpuconv {
       maxo[0] = maximum(maxo[0], mergeConvolvedSignal(convolvedSignalL, mergedSignalL, segmentSize, segmentCount));
       maxo[1] = maximum(maxo[1], mergeConvolvedSignal(convolvedSignalR, mergedSignalR, segmentSize, segmentCount));
 
+      clock_t end = clock();
+      double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+      printf("time consumed for raw convolution: %f seconds\n", elapsed_secs);
+
       float maxot = abs(maxo[0]) >= abs(maxo[1]) ? abs(maxo[0]) : abs(maxo[1]);
 
-      for (int i = 0; i < targetFrames + impulseFrames - 1; i++) {
+      for (int i = 0; i < segmentSize * (segmentCount + 1); i++) {
         outputL[i] = (float) ((mergedSignalL[i][0]) / (maxot));
         outputR[i] = (float) ((mergedSignalR[i][0]) / (maxot));
       }
@@ -140,7 +131,7 @@ namespace cpuconv {
         // copy targetsignal into new buffer
         for (int k = 0; k < segmentSize; ++k) {
           int readOffset = segmentSize * i + k;
-          int writeOffset = segmentSize * 2 * i + k;
+          int writeOffset = transformedSegmentSize * i + k;
 
           destinationBuffer[writeOffset][0] = target[readOffset];
           destinationBuffer[writeOffset][1] = 0.0f;
@@ -148,7 +139,7 @@ namespace cpuconv {
 
         // pad the buffer with zeros til it reaches a size of samplesize * 2 - 1
         for (int k = 0; k < transformedSegmentSize - segmentSize; ++k) {
-          int writeOffset = segmentSize * i * 2 + segmentSize +  k;
+          int writeOffset = transformedSegmentSize + segmentSize +  k;
           destinationBuffer[writeOffset][0] = 0.0f;
           destinationBuffer[writeOffset][1] = 0.0f;
         }
