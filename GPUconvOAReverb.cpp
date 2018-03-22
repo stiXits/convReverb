@@ -45,7 +45,6 @@ namespace gpuconv {
     cl_mem createGPUBuffer(std::vector<complex>::iterator &buffer, uint32_t bufferSize) {
       cl_int err = 0;
       cl_mem bufferHandle = clCreateBuffer( ctx, CL_MEM_ALLOC_HOST_PTR , bufferSize * 2 * sizeof(float), NULL, &err );
-      err = clEnqueueWriteBuffer( queue, bufferHandle, CL_TRUE, 0, bufferSize * 2 * sizeof(float), &*buffer, 0, NULL, NULL );
       // printf("enque write buffer: %d\n", err);
 
       return  bufferHandle;
@@ -95,7 +94,9 @@ namespace gpuconv {
 
       // create all plans
       for(auto buffer: buffers) {
-        bufferHandles.push_back(createGPUBuffer(buffer, bufferSize));
+        cl_mem bufferHandle = createGPUBuffer(buffer, bufferSize);
+        enqueueGPUWriteBuffer(bufferHandle, buffer, bufferSize);
+        bufferHandles.push_back(bufferHandle);
         plans.push_back(createGPUPlan(bufferSize));
       }
 
